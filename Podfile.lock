@@ -13,15 +13,15 @@ PODS:
   - UAFToolkit/Utility (0.1.0)
 
 DEPENDENCIES:
-  - UAFToolkit/Boilerplate (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
-  - UAFToolkit/Navigation (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
-  - UAFToolkit/UI (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
-  - UAFToolkit/UIKit (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
-  - UAFToolkit/Utility (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
+  - UAFToolkit/Boilerplate (from `~/Xcode/Library/UAFToolkit`)
+  - UAFToolkit/Navigation (from `~/Xcode/Library/UAFToolkit`)
+  - UAFToolkit/UI (from `~/Xcode/Library/UAFToolkit`)
+  - UAFToolkit/UIKit (from `~/Xcode/Library/UAFToolkit`)
+  - UAFToolkit/Utility (from `~/Xcode/Library/UAFToolkit`)
 
 EXTERNAL SOURCES:
   UAFToolkit:
-    :git: https://bitbucket.org/hlfcoding/uaftoolkit.git
+    :path: ~/Xcode/Library/UAFToolkit
 
 SPEC CHECKSUMS:
   UAFToolkit: cc21ff4fa089a456c849e52962621b4c8fd14179
