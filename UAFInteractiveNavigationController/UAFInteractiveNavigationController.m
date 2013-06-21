@@ -84,7 +84,6 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   [self.view addGestureRecognizer:self.panGestureRecognizer];
   //-- Container.
   self.containerView = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] currentBounds:NO]];
-  DLog(@"%@", NSStringFromCGRect([[UIScreen mainScreen] currentBounds:NO]));
   [self.view addSubview:self.containerView];
 }
 

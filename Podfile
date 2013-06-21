@@ -4,3 +4,4 @@ pod 'UAFToolkit/Utility',     :git => 'https://bitbucket.org/hlfcoding/uaftoolki
 pod 'UAFToolkit/UIKit',       :git => 'https://bitbucket.org/hlfcoding/uaftoolkit.git'
 pod 'UAFToolkit/Boilerplate', :git => 'https://bitbucket.org/hlfcoding/uaftoolkit.git'
 pod 'UAFToolkit/Navigation',  :git => 'https://bitbucket.org/hlfcoding/uaftoolkit.git'
+pod 'UAFToolkit/UI',          :git => 'https://bitbucket.org/hlfcoding/uaftoolkit.git'

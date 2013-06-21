@@ -17,6 +17,7 @@
 #import <UAFToolkit/UIKit.h>
 #import <UAFToolkit/Navigation.h>
 #import <UAFToolkit/Boilerplate.h>
+#import <UAFToolkit/UI.h>
 
 /**
  TODO: Document.
