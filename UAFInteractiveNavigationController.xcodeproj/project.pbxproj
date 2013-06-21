@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BC5AC365EAF7408AA8033B71 /* libPods.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 62EC024243D045209481AE1D /* libPods.a */; };
 		E3890ADE1773E06400292365 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E3890ADD1773E06400292365 /* Foundation.framework */; };
 		E3890AE31773E06400292365 /* UAFInteractiveNavigationController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E3890AE21773E06400292365 /* UAFInteractiveNavigationController.h */; };
 		E3890AE51773E06400292365 /* UAFInteractiveNavigationController.m in Sources */ = {isa = PBXBuildFile; fileRef = E3890AE41773E06400292365 /* UAFInteractiveNavigationController.m */; };
@@ -42,6 +43,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		482D5FEAA20644C6ACA892F1 /* Pods.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.xcconfig; path = Pods/Pods.xcconfig; sourceTree = SOURCE_ROOT; };
+		62EC024243D045209481AE1D /* libPods.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPods.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E3890ADA1773E06400292365 /* libUAFInteractiveNavigationController.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libUAFInteractiveNavigationController.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E3890ADD1773E06400292365 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		E3890AE11773E06400292365 /* UAFInteractiveNavigationController-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UAFInteractiveNavigationController-Prefix.pch"; sourceTree = "<group>"; };
@@ -62,6 +65,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E3890ADE1773E06400292365 /* Foundation.framework in Frameworks */,
+				BC5AC365EAF7408AA8033B71 /* libPods.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -86,6 +90,7 @@
 				E3890AF41773E06400292365 /* UAFInteractiveNavigationControllerTests */,
 				E3890ADC1773E06400292365 /* Frameworks */,
 				E3890ADB1773E06400292365 /* Products */,
+				482D5FEAA20644C6ACA892F1 /* Pods.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -104,6 +109,7 @@
 				E3890ADD1773E06400292365 /* Foundation.framework */,
 				E3890AEC1773E06400292365 /* SenTestingKit.framework */,
 				E3890AEE1773E06400292365 /* UIKit.framework */,
+				62EC024243D045209481AE1D /* libPods.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -152,9 +158,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = E3890AFF1773E06400292365 /* Build configuration list for PBXNativeTarget "UAFInteractiveNavigationController" */;
 			buildPhases = (
+				D46A9DEA11EE4B13B1464A3D /* Check Pods Manifest.lock */,
 				E3890AD61773E06400292365 /* Sources */,
 				E3890AD71773E06400292365 /* Frameworks */,
 				E3890AD81773E06400292365 /* CopyFiles */,
+				43C942C2325B41C0B0AD9C77 /* Copy Pods Resources */,
+				E3890B051773E43200292365 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -223,6 +232,34 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		43C942C2325B41C0B0AD9C77 /* Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Pods Resources";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Pods/Pods-resources.sh\"\n";
+		};
+		D46A9DEA11EE4B13B1464A3D /* Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Check Pods Manifest.lock";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_ROOT}/../Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [[ $? != 0 ]] ; then\n    cat << EOM\nerror: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\nEOM\n    exit 1\nfi\n";
+		};
 		E3890AE91773E06400292365 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -235,6 +272,19 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Run the unit tests in this test bundle.\n\"${SYSTEM_DEVELOPER_DIR}/Tools/RunUnitTests\"\n";
+		};
+		E3890B051773E43200292365 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "KEYWORDS=\"TODO:|FIXME:|\\?\\?\\?:|\\!\\!\\!:\"\nfind \"${SRCROOT}/UAFInteractiveNavigationController\" \\( -name \"*.h\" -or -name \"*.m\" \\) -print0 | xargs -0 egrep --with-filename --line-number --only-matching \"($KEYWORDS).*\\$\" | perl -p -e \"s/($KEYWORDS)/ warning: \\$1/\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -332,6 +382,7 @@
 		};
 		E3890B001773E06400292365 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 482D5FEAA20644C6ACA892F1 /* Pods.xcconfig */;
 			buildSettings = {
 				DSTROOT = /tmp/UAFInteractiveNavigationController.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -344,6 +395,7 @@
 		};
 		E3890B011773E06400292365 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 482D5FEAA20644C6ACA892F1 /* Pods.xcconfig */;
 			buildSettings = {
 				DSTROOT = /tmp/UAFInteractiveNavigationController.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -403,6 +455,7 @@
 				E3890B011773E06400292365 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		E3890B021773E06400292365 /* Build configuration list for PBXNativeTarget "UAFInteractiveNavigationControllerTests" */ = {
 			isa = XCConfigurationList;
@@ -411,6 +464,7 @@
 				E3890B041773E06400292365 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

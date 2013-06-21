@@ -1,7 +1,14 @@
 //
-// Prefix header for all source files of the 'UAFInteractiveNavigationController' target in the 'UAFInteractiveNavigationController' project
+// Prefix header for all source files of the 'RhymesGesturalNavigationControllerProof' target in the 'RhymesGesturalNavigationControllerProof' project
 //
 
+#import <Availability.h>
+
+#ifndef __IPHONE_3_0
+#warning "This project uses features only available in iOS SDK 3.0 and later."
+#endif
+
 #ifdef __OBJC__
-  #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import <Foundation/Foundation.h>
 #endif

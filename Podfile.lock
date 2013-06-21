@@ -1,0 +1,24 @@
+PODS:
+  - UAFToolkit/Boilerplate (0.1.0):
+    - UAFToolkit/Navigation
+    - UAFToolkit/UIKit
+  - UAFToolkit/Navigation (0.1.0):
+    - UAFToolkit/Boilerplate
+  - UAFToolkit/UIKit (0.1.0):
+    - UAFToolkit/Utility
+  - UAFToolkit/Utility (0.1.0)
+
+DEPENDENCIES:
+  - UAFToolkit/Boilerplate (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
+  - UAFToolkit/Navigation (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
+  - UAFToolkit/UIKit (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
+  - UAFToolkit/Utility (from `https://bitbucket.org/hlfcoding/uaftoolkit.git`)
+
+EXTERNAL SOURCES:
+  UAFToolkit:
+    :git: https://bitbucket.org/hlfcoding/uaftoolkit.git
+
+SPEC CHECKSUMS:
+  UAFToolkit: 8b50f6028abc5ba12214a1346f4ab2ad0dc86c54
+
+COCOAPODS: 0.20.2

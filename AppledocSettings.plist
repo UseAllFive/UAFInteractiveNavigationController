@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>--input</key>
+	<array>
+		<string>./UAFInteractiveNavigationController</string>
+	</array>
+	<key>--ignore</key>
+	<array>
+		<string>./Pods</string>
+		<string>./Build</string>
+	</array>
+	<key>--output</key>
+	<string>./Documentation</string>
+	<key>--project-name</key>
+	<string>UAFInteractiveNavigationController</string>
+	<key>--project-company</key>
+	<string>UseAllFive</string>
+	<key>--company-id</key>
+	<string>com.useallfive</string>
+	<key>--no-repeat-first-par</key>
+	<integer>1</integer>
+	<key>--explicit-crossref</key>
+	<integer>1</integer>
+	<key>--keep-intermediate-files</key>
+	<integer>1</integer>
+	<key>--clean-output</key>
+	<integer>1</integer>
+	<key>--verbose</key>
+	<integer>2</integer>
+	<key>--index-desc</key>
+	<string>README.md</string>
+</dict>
+</plist>
