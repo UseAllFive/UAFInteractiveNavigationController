@@ -42,6 +42,7 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
 
 - (void)handlePan:(UIPanGestureRecognizer *)gesture;
 
+- (BOOL)delegateWillAddViewController:(UIViewController *)viewController;
 - (BOOL)delegateWillShowViewController:(UIViewController *)viewController animated:(BOOL)animated;
 - (BOOL)delegateDidShowViewController:(UIViewController *)viewController animated:(BOOL)animated;
 
@@ -317,6 +318,9 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
 
 - (UIViewController *)visibleViewController
 {
+  if (!self.orderedChildViewControllers.count) {
+    return nil;
+  }
   return self.orderedChildViewControllers[self.currentChildIndex];
 }
 
@@ -411,6 +415,7 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   } else if (direction == UAFNavigationDirectionVertical) {
     frame.origin.y += siblingModifier * frame.size.height;
   }
+  [self delegateWillAddViewController:childController];
   childController.view.frame = frame;
   void (^finishLayout)(void) = !focused ? nil
   : ^{
@@ -675,16 +680,35 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   }
 }
 
+- (BOOL)delegateWillAddViewController:(UIViewController *)viewController
+{
+  if (!(self.flags & FlagCanDelegate)) {
+    return NO;
+  }
+  SEL selector = @selector(customNavigationController:willAddViewController:);
+  if ([self.delegate respondsToSelector:selector]) {
+    [self.delegate customNavigationController:self willAddViewController:viewController];
+  }
+  if (self.visibleViewController && [self.visibleViewController respondsToSelector:selector]) {
+    [(id)self.visibleViewController customNavigationController:self willAddViewController:viewController];
+  }
+  return YES;
+}
 - (BOOL)delegateWillShowViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
   if (!(self.flags & FlagCanDelegate)) {
     return NO;
   }
-  if ([self.delegate respondsToSelector:@selector(customNavigationController:willShowViewController:animated:)]) {
-    [self.delegate customNavigationController:self willShowViewController:viewController animated:animated];
+  BOOL dismissed = [self.orderedChildViewControllers indexOfObject:viewController] < self.currentChildIndex;
+  SEL selector = @selector(customNavigationController:willShowViewController:animated:dismissed:);
+  if ([self.delegate respondsToSelector:selector]) {
+    [self.delegate customNavigationController:self willShowViewController:viewController animated:animated dismissed:dismissed];
   }
   if (self.visibleViewController) {
     [self.visibleViewController viewWillDisappear:animated];
+    if ([self.visibleViewController respondsToSelector:selector]) {
+      [(id)self.visibleViewController customNavigationController:self willShowViewController:viewController animated:animated dismissed:dismissed];
+    }
   }
   [viewController viewWillAppear:animated];
   return YES;
@@ -695,11 +719,16 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   if (!(self.flags & FlagCanDelegate)) {
     return NO;
   }
-  if ([self.delegate respondsToSelector:@selector(customNavigationController:didShowViewController:animated:)]) {
-    [self.delegate customNavigationController:self didShowViewController:viewController animated:animated];
+  BOOL dismissed = [self.orderedChildViewControllers indexOfObject:viewController] < self.currentChildIndex;
+  SEL selector = @selector(customNavigationController:didShowViewController:animated:dismissed:);
+  if ([self.delegate respondsToSelector:selector]) {
+    [self.delegate customNavigationController:self didShowViewController:viewController animated:animated dismissed:dismissed];
   }
   if (self.visibleViewController) {
     [self.visibleViewController viewDidDisappear:animated];
+    if ([self.visibleViewController respondsToSelector:selector]) {
+      [(id)self.visibleViewController customNavigationController:self didShowViewController:viewController animated:animated dismissed:dismissed];
+    }
   }
   [viewController viewDidAppear:animated];
   return YES;
