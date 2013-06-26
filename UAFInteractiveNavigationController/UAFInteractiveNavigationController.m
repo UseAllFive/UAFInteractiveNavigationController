@@ -23,11 +23,6 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
 @property (nonatomic) Flag flags;
 
 @property (strong, nonatomic, readwrite) UIView *containerView;
-@property (strong, nonatomic, readwrite) UIPanGestureRecognizer *panGestureRecognizer;
-
-@property (strong, nonatomic) UIView *previousView;
-@property (strong, nonatomic) UIView *currentView;
-@property (strong, nonatomic) UIView *nextView;
 
 @property (strong, nonatomic) NSMutableArray *orderedChildViewControllers;
 
@@ -35,18 +30,33 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
 @property (nonatomic, readonly, getter = fetchNavigationDuration) NSTimeInterval navigationDuration;
 
 - (BOOL)hasChildViewController:(id)clue;
+
+/** @name CRUD */
+
 - (BOOL)addChildViewController:(UIViewController *)childController animated:(BOOL)animated focused:(BOOL)focused next:(BOOL)isNext;
 
 - (BOOL)cleanChildViewControllers;
 - (BOOL)handleRemoveChildViewController:(UIViewController *)childController; //-- Named to avoid conflict with private API.
 
+- (BOOL)updateChildViewControllerTilingIfNeeded;
+
+/** @name Interactivity */
+
+@property (strong, nonatomic, readwrite) UIPanGestureRecognizer *panGestureRecognizer;
+
+@property (strong, nonatomic) UIView *previousView;
+@property (strong, nonatomic) UIView *currentView;
+@property (strong, nonatomic) UIView *nextView;
+
 - (void)handlePan:(UIPanGestureRecognizer *)gesture;
+
+/** @name Delegation Handlers */
+
+@property (nonatomic) NSUInteger currentChildIndexBuffer;
 
 - (BOOL)delegateWillAddViewController:(UIViewController *)viewController;
 - (BOOL)delegateWillShowViewController:(UIViewController *)viewController animated:(BOOL)animated;
 - (BOOL)delegateDidShowViewController:(UIViewController *)viewController animated:(BOOL)animated;
-
-- (BOOL)updateChildViewControllerTilingIfNeeded;
 
 @end
 
@@ -368,6 +378,8 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   return result;
 }
 
+#pragma mark CRUD
+
 - (BOOL)addChildViewController:(UIViewController *)childController animated:(BOOL)animated focused:(BOOL)focused next:(BOOL)isNext
 {
   //-- Guards.
@@ -510,6 +522,34 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   //NSLog(@"Cleared index: %d", index);
   return YES;
 }
+
+- (BOOL)updateChildViewControllerTilingIfNeeded
+{
+  if (!self.pagingEnabled || !self.pagingDelegate) {
+    return NO;
+  }
+  [self cleanChildViewControllers];
+  BOOL didUpdate = NO;
+  UIViewController *nextViewController = [self.pagingDelegate customNavigationController:self viewControllerAfterViewController:self.visibleViewController];
+  UIViewController *previousViewController = [self.pagingDelegate customNavigationController:self viewControllerBeforeViewController:self.visibleViewController];
+  if (nextViewController && self.currentChildIndex == self.orderedChildViewControllers.count - 1) {
+    didUpdate = [self pushViewController:nextViewController animated:NO focused:NO];
+  }
+  if (previousViewController && self.currentChildIndex == 0) {
+    didUpdate = [self addChildViewController:previousViewController animated:NO focused:NO next:NO];
+    if (didUpdate) {
+      self.currentChildIndex++;
+    }
+  }
+  if (didUpdate) {
+    NSAssert(self.orderedChildViewControllers.count == 3
+             || (!(previousViewController && nextViewController) && self.orderedChildViewControllers.count == 2),
+             @"Tiling had errors. %@", self.orderedChildViewControllers);
+  }
+  return didUpdate;
+}
+
+#pragma mark Interactivity
 
 - (void)handlePan:(UIPanGestureRecognizer *)gesture
 {
@@ -680,6 +720,8 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   }
 }
 
+#pragma mark Delegation Handlers
+
 - (BOOL)delegateWillAddViewController:(UIViewController *)viewController
 {
   if (!(self.flags & FlagCanDelegate)) {
@@ -732,32 +774,6 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   }
   [viewController viewDidAppear:animated];
   return YES;
-}
-
-- (BOOL)updateChildViewControllerTilingIfNeeded
-{
-  if (!self.pagingEnabled || !self.pagingDelegate) {
-    return NO;
-  }
-  [self cleanChildViewControllers];
-  BOOL didUpdate = NO;
-  UIViewController *nextViewController = [self.pagingDelegate customNavigationController:self viewControllerAfterViewController:self.visibleViewController];
-  UIViewController *previousViewController = [self.pagingDelegate customNavigationController:self viewControllerBeforeViewController:self.visibleViewController];
-  if (nextViewController && self.currentChildIndex == self.orderedChildViewControllers.count - 1) {
-    didUpdate = [self pushViewController:nextViewController animated:NO focused:NO];
-  }
-  if (previousViewController && self.currentChildIndex == 0) {
-    didUpdate = [self addChildViewController:previousViewController animated:NO focused:NO next:NO];
-    if (didUpdate) {
-      self.currentChildIndex++;
-    }
-  }
-  if (didUpdate) {
-    NSAssert(self.orderedChildViewControllers.count == 3
-             || (!(previousViewController && nextViewController) && self.orderedChildViewControllers.count == 2),
-             @"Tiling had errors. %@", self.orderedChildViewControllers);
-  }
-  return didUpdate;
 }
 
 #pragma mark - UIGestureRecognizerDelegate
