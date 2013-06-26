@@ -17,6 +17,8 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   FlagCanHandlePan     = 1 << 4,
 };
 
+static NSArray *keyPathsToObserve;
+
 @interface UAFInteractiveNavigationController ()
 
 @property (nonatomic) NSUInteger currentChildIndex;
@@ -73,6 +75,10 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
 
 - (void)_commonInit
 {
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    keyPathsToObserve = @[ @"currentChildIndex" ];
+  });
   [super _commonInit];
   //-- Custom initialization.
   self.baseNavigationDirection = UAFNavigationDirectionHorizontal;
@@ -83,6 +89,16 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   self.pagingEnabled = NO;
   self.flags = FlagCanDelegate|FlagCanHandlePan;
   self.orderedChildViewControllers = [NSMutableArray array];
+  for (NSString *keyPath in keyPathsToObserve) {
+    [self addObserver:self forKeyPath:keyPath options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld context:nil];
+  }
+}
+
+- (void)dealloc
+{
+  for (NSString *keyPath in keyPathsToObserve) {
+    [self removeObserver:self forKeyPath:keyPath];
+  }  
 }
 
 - (void)viewDidLoad
@@ -138,6 +154,20 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
 - (BOOL)shouldAutorotate
 {
   return !(self.flags & FlagIsPerforming || self.flags & FlagIsResetting);
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
+{
+  id previousValue = change[NSKeyValueChangeOldKey];
+  id value = change[NSKeyValueChangeNewKey];
+  if ([value isEqual:previousValue]) {
+    return;
+  }
+  if (object == self) {
+    if ([keyPath isEqualToString:@"currentChildIndex"]) {
+      self.currentChildIndexBuffer = [previousValue unsignedIntegerValue];
+    }
+  }
 }
 
 #pragma mark - UAFNavigationController
@@ -746,10 +776,11 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   if ([self.delegate respondsToSelector:selector]) {
     [self.delegate customNavigationController:self willShowViewController:viewController animated:animated dismissed:dismissed];
   }
-  if (self.visibleViewController) {
-    [self.visibleViewController viewWillDisappear:animated];
-    if ([self.visibleViewController respondsToSelector:selector]) {
-      [(id)self.visibleViewController customNavigationController:self willShowViewController:viewController animated:animated dismissed:dismissed];
+  UIViewController *sourceViewController = self.visibleViewController;
+  if (sourceViewController) {
+    [sourceViewController viewWillDisappear:animated];
+    if ([sourceViewController respondsToSelector:selector]) {
+      [(id)sourceViewController customNavigationController:self willShowViewController:viewController animated:animated dismissed:dismissed];
     }
   }
   [viewController viewWillAppear:animated];
@@ -766,10 +797,15 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   if ([self.delegate respondsToSelector:selector]) {
     [self.delegate customNavigationController:self didShowViewController:viewController animated:animated dismissed:dismissed];
   }
-  if (self.visibleViewController) {
-    [self.visibleViewController viewDidDisappear:animated];
-    if ([self.visibleViewController respondsToSelector:selector]) {
-      [(id)self.visibleViewController customNavigationController:self didShowViewController:viewController animated:animated dismissed:dismissed];
+  UIViewController *sourceViewController = nil;
+  if (self.currentChildIndexBuffer < self.orderedChildViewControllers.count) {
+    //-- Check if source child-controller's been removed.
+    sourceViewController = self.orderedChildViewControllers[self.currentChildIndexBuffer];
+  }
+  if (sourceViewController) {
+    [sourceViewController viewDidDisappear:animated];
+    if ([sourceViewController respondsToSelector:selector]) {
+      [(id)sourceViewController customNavigationController:self didShowViewController:viewController animated:animated dismissed:dismissed];
     }
   }
   [viewController viewDidAppear:animated];
