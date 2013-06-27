@@ -176,6 +176,15 @@ static NSArray *keyPathsToObserve;
 {
   return [self pushViewController:viewController animated:animated focused:YES];
 }
+- (BOOL)pushViewControllerWithIdentifier:(NSString *)identifier animated:(BOOL)animated
+{
+  return [self pushViewControllerWithIdentifier:identifier animated:animated focused:YES];
+}
+- (BOOL)pushViewControllerWithIdentifier:(NSString *)identifier animated:(BOOL)animated focused:(BOOL)focused
+{
+  return [self pushViewController:[self.storyboard instantiateViewControllerWithIdentifier:identifier]
+                         animated:animated focused:focused];
+}
 - (BOOL)pushViewController:(UIViewController *)viewController animated:(BOOL)animated focused:(BOOL)focused
 {
   return [self addChildViewController:viewController animated:animated focused:focused next:YES];
@@ -244,6 +253,11 @@ static NSArray *keyPathsToObserve;
   return YES;
 }
 
+- (BOOL)popToViewControllerWithIdentifier:(NSString *)identifier animated:(BOOL)animated
+{
+  return [self popToViewController:[self.storyboard instantiateViewControllerWithIdentifier:identifier]
+                          animated:animated];
+}
 - (BOOL)popToViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
   //-- Guards.
@@ -303,8 +317,9 @@ static NSArray *keyPathsToObserve;
     }];
   };
   //-- Reset.
-  for (UIViewController *viewController in self.orderedChildViewControllers) {
-    [self handleRemoveChildViewController:viewController];
+  //-- TODO: Eventually: Abstract as needed.
+  for (NSInteger index = self.orderedChildViewControllers.count - 1; index >= 0; index--) {
+    [self handleRemoveChildViewController:self.orderedChildViewControllers[index]];
   }
   self.currentChildIndex = 0;
   //-- /Reset.
@@ -323,22 +338,6 @@ static NSArray *keyPathsToObserve;
     tearDown(YES);
   }
   return YES;
-}
-
-- (BOOL)pushViewControllerWithIdentifier:(NSString *)identifier animated:(BOOL)animated
-{
-  return [self pushViewControllerWithIdentifier:identifier animated:animated focused:YES];
-}
-- (BOOL)pushViewControllerWithIdentifier:(NSString *)identifier animated:(BOOL)animated focused:(BOOL)focused
-{
-  return [self pushViewController:[self.storyboard instantiateViewControllerWithIdentifier:identifier]
-                         animated:animated focused:focused];
-}
-
-- (BOOL)popToViewControllerWithIdentifier:(NSString *)identifier animated:(BOOL)animated
-{
-  return [self popToViewController:[self.storyboard instantiateViewControllerWithIdentifier:identifier]
-                          animated:animated];
 }
 
 - (BOOL)handleRemovalRequestForViewController:(UIViewController *)viewController
@@ -362,6 +361,22 @@ static NSArray *keyPathsToObserve;
     return nil;
   }
   return self.orderedChildViewControllers[self.currentChildIndex];
+}
+
+- (UIViewController *)previousViewController
+{
+  if (!self.orderedChildViewControllers.count || self.currentChildIndex <= 0) {
+    return nil;
+  }
+  return self.orderedChildViewControllers[self.currentChildIndex - 1];
+}
+
+- (UIViewController *)nextViewController
+{
+  if (!self.orderedChildViewControllers.count || self.currentChildIndex >= self.orderedChildViewControllers.count - 1) {
+    return nil;
+  }
+  return self.orderedChildViewControllers[self.currentChildIndex + 1];
 }
 
 - (NSArray *)viewControllers
@@ -393,12 +408,7 @@ static NSArray *keyPathsToObserve;
 
 - (BOOL)hasChildViewController:(id)clue
 {
-  UIViewController *viewController = nil;
-  if ([clue isKindOfClass:[UIViewController class]]) {
-    viewController = clue;
-  } else if ([clue isKindOfClass:[NSString class]]) {
-    viewController = [self.storyboard instantiateViewControllerWithIdentifier:clue];
-  }
+  UIViewController *viewController = [self viewControllerForClue:clue];
   //-- Guard.
   NSAssert(viewController, @"Can't find child-controller for given clue: %@", clue);
   if (!viewController) {
@@ -406,6 +416,17 @@ static NSArray *keyPathsToObserve;
   }
   BOOL result = !([self.orderedChildViewControllers indexOfObject:viewController] == NSNotFound);
   return result;
+}
+
+- (UIViewController *)viewControllerForClue:(id)clue
+{
+  UIViewController *viewController = nil;
+  if ([clue isKindOfClass:[UIViewController class]]) {
+    viewController = clue;
+  } else if ([clue isKindOfClass:[NSString class]]) {
+    viewController = [self.storyboard instantiateViewControllerWithIdentifier:clue];
+  }
+  return viewController;
 }
 
 #pragma mark CRUD
@@ -594,11 +615,9 @@ static NSArray *keyPathsToObserve;
   if (gesture.state == UIGestureRecognizerStateBegan) {
     self.flags |= FlagCanHandlePan;
     //-- Identify as needed.
-    self.previousView = (self.currentChildIndex > 0)
-    ? [self.orderedChildViewControllers[self.currentChildIndex - 1] view] : nil;
-    self.nextView = (self.currentChildIndex < self.orderedChildViewControllers.count - 1)
-    ? [self.orderedChildViewControllers[self.currentChildIndex + 1] view] : nil;
-    self.currentView = [self.orderedChildViewControllers[self.currentChildIndex] view];
+    self.previousView = self.previousViewController ? self.previousViewController.view : nil;
+    self.nextView = self.nextViewController ? self.nextViewController.view : nil;
+    self.currentView = self.visibleViewController.view;
   }
   //-- /Start.
   //-- Guards.
