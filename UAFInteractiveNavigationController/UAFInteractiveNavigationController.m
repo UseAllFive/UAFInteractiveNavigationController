@@ -32,6 +32,7 @@ static NSArray *keyPathsToObserve;
 @property (nonatomic, readonly, getter = fetchNavigationDuration) NSTimeInterval navigationDuration;
 
 - (BOOL)hasChildViewController:(id)clue;
+- (UIViewController *)viewControllerForClue:(id)clue;
 
 /** @name CRUD */
 
@@ -172,6 +173,12 @@ static NSArray *keyPathsToObserve;
 
 #pragma mark - UAFNavigationController
 
+- (BOOL)pushViewController:(id)viewController animated:(BOOL)animated completion:(void (^)(void))completion
+{
+  BOOL didPush = [self pushViewController:[self viewControllerForClue:viewController] animated:animated];
+  if (didPush) { completion(); }
+  return didPush;
+}
 - (BOOL)pushViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
   return [self pushViewController:viewController animated:animated focused:YES];
@@ -190,6 +197,12 @@ static NSArray *keyPathsToObserve;
   return [self addChildViewController:viewController animated:animated focused:focused next:YES];
 }
 
+- (BOOL)popViewControllerAnimated:(BOOL)animated completion:(void (^)(void))completion
+{
+  BOOL didPop = [self popViewControllerAnimated:animated];
+  if (didPop) { completion(); }
+  return didPop;
+}
 - (BOOL)popViewControllerAnimated:(BOOL)animated
 {
   return [self popViewControllerAnimated:animated focused:YES];
@@ -253,6 +266,12 @@ static NSArray *keyPathsToObserve;
   return YES;
 }
 
+- (BOOL)popToViewController:(id)viewController animated:(BOOL)animated completion:(void (^)(void))completion
+{
+  BOOL didPop = [self popToViewController:[self viewControllerForClue:viewController] animated:animated];
+  if (didPop) { completion(); }
+  return didPop;
+}
 - (BOOL)popToViewControllerWithIdentifier:(NSString *)identifier animated:(BOOL)animated
 {
   return [self popToViewController:[self.storyboard instantiateViewControllerWithIdentifier:identifier]
@@ -674,6 +693,13 @@ static NSArray *keyPathsToObserve;
     BOOL isNextBoundary     = translationValue < 0 && !self.nextView;
     BOOL isPreviousBoundary = translationValue > 0 && !self.previousView;
     if (isNextBoundary || isPreviousBoundary) {
+      return;
+    }
+  }
+  //-- Check child-controller.
+  if ([self.visibleViewController respondsToSelector:@selector(shouldNavigateToViewController:)]) {
+    UIViewController *viewController = translationValue < 0 ? self.nextViewController : self.previousViewController;
+    if (![(id)self.visibleViewController shouldNavigateToViewController:viewController]) {
       return;
     }
   }
