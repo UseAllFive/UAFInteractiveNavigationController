@@ -33,6 +33,4 @@ UIGestureRecognizerDelegate>
 @property (nonatomic) NSTimeInterval finishTransitionDurationFactor;
 @property (nonatomic) NSTimeInterval finishTransitionDurationMinimum;
 
-@property (nonatomic) BOOL shouldDebugLog;
-
 @end

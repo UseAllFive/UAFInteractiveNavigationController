@@ -92,6 +92,7 @@ static NSArray *keyPathsToObserve;
   });
   [super _commonInit];
   //-- Custom initialization.
+  self.shouldDebug = YES;
   self.baseNavigationDirection = UAFNavigationDirectionHorizontal;
   self.baseNavigationDuration = 0.8f;
   self.finishTransitionDurationFactor = 2.0f;
@@ -152,7 +153,7 @@ static NSArray *keyPathsToObserve;
                                isHorizontal ? 0.0f : offset,
                                newWidth, newHeight);
   }];
-  DLog(@"%f, %f", newWidth, newHeight);
+  if (self.shouldDebug) DLog(@"%f, %f", newWidth, newHeight);
 }
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation
@@ -231,7 +232,7 @@ static NSArray *keyPathsToObserve;
 {
   //-- Guards.
   if (self.flags & FlagIsPerforming || self.currentChildIndex == 0) {
-    NSLog(@"Guarded.");
+    if (self.shouldDebug) DLog(@"Guarded.");
     return NO;
   }
   //-- /Guards.
@@ -251,7 +252,7 @@ static NSArray *keyPathsToObserve;
                                                       [(id)viewController nextNavigationItemIdentifier]] class];
     }
     if (shouldRemove) {
-      //NSLog(@"Removing...");
+      if (self.shouldDebug) DLog(@"Removing...");
       [self handleRemoveChildViewController:currentViewController];
     }
     if (focused) {
@@ -344,7 +345,7 @@ static NSArray *keyPathsToObserve;
     return NO;
   }
   if (self.flags & FlagIsResetting) {
-    NSLog(@"Guarded.");
+    if (self.shouldDebug) DLog(@"Guarded.");
     return NO;
   }
   //-- State.
@@ -389,7 +390,7 @@ static NSArray *keyPathsToObserve;
 - (BOOL)handleRemovalRequestForViewController:(UIViewController *)viewController
 {
   if (![self hasChildViewController:viewController]) {
-    NSLog(@"Guarded.");
+    if (self.shouldDebug) DLog(@"Guarded.");
     return NO;
   }
   BOOL didRemove = [self handleRemoveChildViewController:viewController];
@@ -484,7 +485,7 @@ static NSArray *keyPathsToObserve;
     return NO;
   }
   if (self.flags & FlagIsPerforming) {
-    NSLog(@"Guarded.");
+    if (self.shouldDebug) DLog(@"Guarded.");
     return NO;
   }
   //-- /Guards.
@@ -551,7 +552,7 @@ static NSArray *keyPathsToObserve;
     } else {
       [self.orderedChildViewControllers insertObject:childController atIndex:0];
     }
-    DLog(@"%@", self.orderedChildViewControllers);
+    if (self.shouldDebug) DLog(@"%@", self.orderedChildViewControllers);
     childController.view.clipsToBounds = YES;
     if ([childController respondsToSelector:@selector(setCustomNavigationController:)]) {
       [(id)childController setCustomNavigationController:self];
@@ -588,7 +589,7 @@ static NSArray *keyPathsToObserve;
   if (!self.orderedChildViewControllers.count || self.flags & FlagIsResetting) {
     return NO;
   }
-  //NSLog(@"Visible index: %d", self.currentChildIndex);
+  if (self.shouldDebug) DLog(@"Visible index: %d", self.currentChildIndex);
   for (NSInteger index = self.orderedChildViewControllers.count - 1; index >= 0; index--) {
     BOOL isOfSharedRoot   = index <= self.currentChildIndex;
     BOOL isWithinTileset  = index <= self.currentChildIndex + 1 && index >= self.currentChildIndex - 1;
@@ -620,7 +621,7 @@ static NSArray *keyPathsToObserve;
   if (index < self.currentChildIndex && self.currentChildIndex > 0) {
     self.currentChildIndex--;
   }
-  //NSLog(@"Cleared index: %d", index);
+  if (self.shouldDebug) DLog(@"Cleared index: %d", index);
   return YES;
 }
 
@@ -711,7 +712,7 @@ static NSArray *keyPathsToObserve;
           scrollView.showsVerticalScrollIndicator = !on;
         }
       };
-      //NSLog(@"%f", [gesture velocityInView:gesture.view].y);
+      if (self.shouldDebug) DLog(@"%f", [gesture velocityInView:gesture.view].y);
       BOOL shouldDismiss = ((isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y) <= 0.0f
                             && (isHorizontal ? velocity.x : velocity.y) > 0.0f); //-- NOTE: Refactor with `velocityValue` as needed.
       if (!shouldDismiss && !(self.flags & FlagIsStealingPan)) {
@@ -736,7 +737,7 @@ static NSArray *keyPathsToObserve;
   } else if ((isHorizontal && ABS(velocity.x) < ABS(velocity.y))
              || (!isHorizontal && ABS(velocity.y) < ABS(velocity.x))
              ) {
-    //NSLog(@"Can't handle gesture (%@).", NSStringFromClass(self.class));
+    if (self.shouldDebug) DLog(@"Can't handle gesture (%@).", NSStringFromClass(self.class));
     self.flags &= ~FlagCanHandlePan;
     shouldCancel = YES;
   }
@@ -846,9 +847,11 @@ static NSArray *keyPathsToObserve;
                        animations:resetTransforms completion:handleDidShow];
     }
     //-- /Finish.
-    //NSLog(@"%f", velocityValue);
-    NSLog(@"%f", translationValue);
-    //NSLog(@"%f", finishDuration);
+    if (self.shouldDebug) {
+      DLog(@"%f", velocityValue);
+      DLog(@"%f", translationValue);
+      DLog(@"%f", finishDuration);
+    }
   }
 }
 
