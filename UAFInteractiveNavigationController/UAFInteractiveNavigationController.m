@@ -17,6 +17,12 @@ typedef NS_OPTIONS(NSUInteger, Flag) {
   FlagCanHandlePan     = 1 << 4,
 };
 
+typedef NS_ENUM(NSUInteger, PresentationFlag) {
+  PresentationFlagNone,
+  PresentationFlagBeingPresented,
+  PresentationFlagBeingDismissed,
+};
+
 static NSArray *keyPathsToObserve;
 
 @interface UAFInteractiveNavigationController ()
@@ -43,6 +49,8 @@ static NSArray *keyPathsToObserve;
 
 - (BOOL)updateChildViewControllerTilingIfNeeded;
 
+- (BOOL)togglePresentedIfNeeded:(PresentationFlag)presented forChildViewController:(UIViewController *)childController ;
+
 /** @name Interactivity */
 
 @property (strong, nonatomic, readwrite) UIPanGestureRecognizer *panGestureRecognizer;
@@ -58,8 +66,9 @@ static NSArray *keyPathsToObserve;
 @property (nonatomic) NSUInteger currentChildIndexBuffer;
 
 - (BOOL)delegateWillAddViewController:(UIViewController *)viewController;
-- (BOOL)delegateWillShowViewController:(UIViewController *)viewController animated:(BOOL)animated;
-- (BOOL)delegateDidShowViewController:(UIViewController *)viewController animated:(BOOL)animated;
+- (BOOL)delegateWillTransitionToViewController:(UIViewController *)viewController animated:(BOOL)animated;
+- (BOOL)delegateDidTransitionToViewController:(UIViewController *)viewController animated:(BOOL)animated;
+- (BOOL)delegateShouldNavigateToViewController:(UIViewController *)viewController;
 
 @end
 
@@ -70,6 +79,7 @@ static NSArray *keyPathsToObserve;
 @synthesize baseNavigationDirection, onceNavigationDirection;
 @synthesize baseNavigationDuration, onceNavigationDuration;
 @synthesize pagingDelegate, pagingEnabled;
+@synthesize shouldUpdatePresentationFlags;
 
 //-- UAFInertialViewController
 @synthesize bounces;
@@ -112,7 +122,7 @@ static NSArray *keyPathsToObserve;
   [self.view addGestureRecognizer:self.panGestureRecognizer];
   //-- Container.
   self.containerView = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] currentBounds:NO]];
-  [self.view addSubview:self.containerView];
+  [self.view insertSubview:self.containerView atIndex:0];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -142,9 +152,7 @@ static NSArray *keyPathsToObserve;
                                isHorizontal ? 0.0f : offset,
                                newWidth, newHeight);
   }];
-  if (self.shouldDebugLog) {
-    DLog(@"%f, %f", newWidth, newHeight);
-  }
+  DLog(@"%f, %f", newWidth, newHeight);
 }
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation
@@ -176,7 +184,13 @@ static NSArray *keyPathsToObserve;
 - (BOOL)pushViewController:(id)viewController animated:(BOOL)animated completion:(void (^)(void))completion
 {
   BOOL didPush = [self pushViewController:[self viewControllerForClue:viewController] animated:animated];
-  if (didPush) { completion(); }
+  if (didPush && completion) {
+    if (animated) {
+      UAFDispatchAfter(self.navigationDuration, completion);
+    } else {
+      completion();
+    }
+  }
   return didPush;
 }
 - (BOOL)pushViewController:(UIViewController *)viewController animated:(BOOL)animated
@@ -200,7 +214,13 @@ static NSArray *keyPathsToObserve;
 - (BOOL)popViewControllerAnimated:(BOOL)animated completion:(void (^)(void))completion
 {
   BOOL didPop = [self popViewControllerAnimated:animated];
-  if (didPop) { completion(); }
+  if (didPop && completion) {
+    if (animated) {
+      UAFDispatchAfter(self.navigationDuration, completion);
+    } else {
+      completion();
+    }
+  }
   return didPop;
 }
 - (BOOL)popViewControllerAnimated:(BOOL)animated
@@ -235,7 +255,7 @@ static NSArray *keyPathsToObserve;
       [self handleRemoveChildViewController:currentViewController];
     }
     if (focused) {
-      [self delegateDidShowViewController:viewController animated:animated];
+      [self delegateDidTransitionToViewController:viewController animated:animated];
       [self updateChildViewControllerTilingIfNeeded];
     }
   };
@@ -254,7 +274,7 @@ static NSArray *keyPathsToObserve;
   };
   //-- /Layout.
   if (focused) {
-    [self delegateWillShowViewController:viewController animated:animated];
+    [self delegateWillTransitionToViewController:viewController animated:animated];
   }
   if (animated) {
     [UIView animateWithDuration:self.navigationDuration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut
@@ -269,7 +289,13 @@ static NSArray *keyPathsToObserve;
 - (BOOL)popToViewController:(id)viewController animated:(BOOL)animated completion:(void (^)(void))completion
 {
   BOOL didPop = [self popToViewController:[self viewControllerForClue:viewController] animated:animated];
-  if (didPop) { completion(); }
+  if (didPop && completion) {
+    if (animated) {
+      UAFDispatchAfter(self.navigationDuration, completion);
+    } else {
+      completion();
+    }
+  }
   return didPop;
 }
 - (BOOL)popToViewControllerWithIdentifier:(NSString *)identifier animated:(BOOL)animated
@@ -343,6 +369,7 @@ static NSArray *keyPathsToObserve;
   self.currentChildIndex = 0;
   //-- /Reset.
   if (animated) {
+    //-- TODO: Also: Unproven feature.
     NSTimeInterval duration = self.navigationDuration;
     [UIView animateWithDuration:duration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut animations:^{
       self.containerView.alpha = 0.0f;
@@ -405,12 +432,12 @@ static NSArray *keyPathsToObserve;
 
 #pragma mark - Private
 
+//-- TODO: Eventually: Document usage.
 - (NSTimeInterval)fetchNavigationDuration
 {
   NSTimeInterval duration = self.baseNavigationDuration;
   if (self.onceNavigationDuration != kUAFNavigationDurationNone) {
     duration = self.onceNavigationDuration;
-    self.onceNavigationDuration = kUAFNavigationDurationNone;
   }
   return duration;
 }
@@ -420,7 +447,6 @@ static NSArray *keyPathsToObserve;
   UAFNavigationDirection direction = self.baseNavigationDirection;
   if (self.onceNavigationDirection != UAFNavigationDirectionNone) {
     direction = self.onceNavigationDirection;
-    self.onceNavigationDirection = UAFNavigationDirectionNone;
   }
   return direction;
 }
@@ -468,7 +494,7 @@ static NSArray *keyPathsToObserve;
   void (^tearDown)(BOOL) = ^(BOOL finished) {
     self.flags &= ~FlagIsPerforming;
     if (focused) {
-      [self delegateDidShowViewController:childController animated:animated];
+      [self delegateDidTransitionToViewController:childController animated:animated];
       [self updateChildViewControllerTilingIfNeeded];
     }
     //-- TODO: Eventually: Support previous, although no real use case (unless we flip directions).
@@ -517,25 +543,30 @@ static NSArray *keyPathsToObserve;
   if (focused) {
     [self cleanChildViewControllers];
   }
-  [self addChildViewController:childController];
-  if (isNext) {
-    [self.orderedChildViewControllers addObject:childController];
-  } else {
-    [self.orderedChildViewControllers insertObject:childController atIndex:0];
+  BOOL shouldSkipAdding = self.pagingEnabled && [self hasChildViewController:childController];
+  if (!shouldSkipAdding) {
+    [self addChildViewController:childController];
+    if (isNext) {
+      [self.orderedChildViewControllers addObject:childController];
+    } else {
+      [self.orderedChildViewControllers insertObject:childController atIndex:0];
+    }
+    DLog(@"%@", self.orderedChildViewControllers);
+    childController.view.clipsToBounds = YES;
+    if ([childController respondsToSelector:@selector(setCustomNavigationController:)]) {
+      [(id)childController setCustomNavigationController:self];
+    }
+    //-- TODO: Finally: Detect more scroll-views.
+    if ([childController isKindOfClass:[UICollectionViewController class]]) {
+      UIScrollView *scrollView = [(UICollectionViewController *)childController collectionView];
+      [scrollView.panGestureRecognizer addTarget:self action:@selector(handlePan:)];
+    }
+    [self.containerView addSubview:childController.view];
+    [childController didMoveToParentViewController:self];
   }
-  if ([childController respondsToSelector:@selector(setCustomNavigationController:)]) {
-    [(id)childController setCustomNavigationController:self];
-  }
-  //-- TODO: Finally: Detect more scroll-views.
-  if ([childController isKindOfClass:[UICollectionViewController class]]) {
-    UIScrollView *scrollView = [(UICollectionViewController *)childController collectionView];
-    [scrollView.panGestureRecognizer addTarget:self action:@selector(handlePan:)];
-  }
-  [self.containerView addSubview:childController.view];
-  [childController didMoveToParentViewController:self];
   //-- /Add.
   if (focused) {
-    [self delegateWillShowViewController:childController animated:animated];
+    [self delegateWillTransitionToViewController:childController animated:animated];
   }
   if (animated) {
     [UIView animateWithDuration:self.navigationDuration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut
@@ -619,6 +650,27 @@ static NSArray *keyPathsToObserve;
   return didUpdate;
 }
 
+- (BOOL)togglePresentedIfNeeded:(PresentationFlag)presented forChildViewController:(UIViewController *)childController ;
+{
+  if (!self.shouldUpdatePresentationFlags) {
+    return NO;
+  }
+  BOOL didUpdate = NO;
+  BOOL isBeingPresented = presented == PresentationFlagBeingPresented;
+  BOOL isBeingDismissed = presented == PresentationFlagBeingDismissed;
+  if (presented == PresentationFlagNone) {
+    isBeingPresented = isBeingDismissed = NO;
+  }
+  if ([childController respondsToSelector:@selector(setCustomIsBeingPresented:)]) {
+    didUpdate = YES;
+    [(id)childController setCustomIsBeingPresented:isBeingPresented];
+    if ([childController respondsToSelector:@selector(setCustomIsBeingDismissed:)]) {
+      [(id)childController setCustomIsBeingDismissed:isBeingDismissed];
+    }
+  }
+  return didUpdate;
+}
+
 #pragma mark Interactivity
 
 - (void)handlePan:(UIPanGestureRecognizer *)gesture
@@ -696,14 +748,15 @@ static NSArray *keyPathsToObserve;
       return;
     }
   }
-  //-- Check child-controller.
-  if ([self.visibleViewController respondsToSelector:@selector(shouldNavigateToViewController:)]) {
-    UIViewController *viewController = translationValue < 0 ? self.nextViewController : self.previousViewController;
-    if (![(id)self.visibleViewController shouldNavigateToViewController:viewController]) {
-      return;
-    }
+  //-- Check delegates.
+  UIViewController *viewController = (translationValue < 0) ? self.nextViewController : self.previousViewController;
+  if (![self delegateShouldNavigateToViewController:viewController]) {
+    return;
   }
   //-- /Guards.
+  if (gesture.state == UIGestureRecognizerStateBegan) {
+    [viewController viewWillAppear:YES];
+  }
   //-- Update.
   CGAffineTransform transform =
   CGAffineTransformMakeTranslation(isHorizontal ? translation.x : 0.0f,
@@ -742,15 +795,18 @@ static NSArray *keyPathsToObserve;
     BOOL finishedPanToNext      = !shouldCancel && (self.nextView && translationValue + (velocityValue / 2.0f) < -containerSide / 2.0f);
     BOOL finishedPanToPrevious  = !shouldCancel && (self.previousView && translationValue + (velocityValue / 2.0f) > containerSide / 2.0f);
     void (^handleDidShow)(BOOL) = nil;
+    //-- Finish. Animate if needed.
     if (finishedPanToNext || finishedPanToPrevious) {
       //-- Reset transforms.
       resetTransforms();
       finishDuration *= (currentSide / 2.0f) / ABS((translationValue + (velocityValue / 2.0f)) / self.finishTransitionDurationFactor);
       finishDuration = makeFinalFinishDuration(finishDuration);
+      //-- Callbacks.
       UIViewController *newViewController = self.orderedChildViewControllers[self.currentChildIndex + (finishedPanToNext ? 1 : -1)];
-      [self delegateWillShowViewController:newViewController animated:YES];
+      [self delegateWillTransitionToViewController:newViewController animated:YES];
       handleDidShow = ^(BOOL finished) {
-        [self delegateDidShowViewController:newViewController animated:YES];
+        [self delegateDidTransitionToViewController:newViewController animated:YES];
+        //-- Extra.
         [self updateChildViewControllerTilingIfNeeded];
       };
     }
@@ -789,8 +845,9 @@ static NSArray *keyPathsToObserve;
       [UIView animateWithDuration:finishDuration delay:0.0f options:easingOptions
                        animations:resetTransforms completion:handleDidShow];
     }
+    //-- /Finish.
     //NSLog(@"%f", velocityValue);
-    //NSLog(@"%f", translationValue);
+    NSLog(@"%f", translationValue);
     //NSLog(@"%f", finishDuration);
   }
 }
@@ -811,35 +868,45 @@ static NSArray *keyPathsToObserve;
   }
   return YES;
 }
-- (BOOL)delegateWillShowViewController:(UIViewController *)viewController animated:(BOOL)animated
+- (BOOL)delegateWillTransitionToViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
   if (!(self.flags & FlagCanDelegate)) {
     return NO;
   }
   BOOL dismissed = [self.orderedChildViewControllers indexOfObject:viewController] < self.currentChildIndex;
-  SEL selector = @selector(customNavigationController:willShowViewController:animated:dismissed:);
-  if ([self.delegate respondsToSelector:selector]) {
+  SEL showSelector = @selector(customNavigationController:willShowViewController:animated:dismissed:);
+  SEL hideSelector = @selector(customNavigationController:willHideViewController:animated:dismissed:);
+  if ([self.delegate respondsToSelector:showSelector]) {
     [self.delegate customNavigationController:self willShowViewController:viewController animated:animated dismissed:dismissed];
   }
   UIViewController *sourceViewController = self.visibleViewController;
   if (sourceViewController) {
-    [sourceViewController viewWillDisappear:animated];
-    if ([sourceViewController respondsToSelector:selector]) {
+    if ([self.delegate respondsToSelector:hideSelector]) {
+      [self.delegate customNavigationController:self willHideViewController:viewController animated:animated dismissed:dismissed];
+    }
+    if ([sourceViewController respondsToSelector:showSelector]) {
       [(id)sourceViewController customNavigationController:self willShowViewController:viewController animated:animated dismissed:dismissed];
     }
+    if ([viewController respondsToSelector:hideSelector]) {
+      [(id)viewController customNavigationController:self willHideViewController:sourceViewController animated:animated dismissed:dismissed];
+    }
+    [self togglePresentedIfNeeded:PresentationFlagBeingDismissed forChildViewController:sourceViewController];
+    [sourceViewController viewWillDisappear:animated];
   }
+  [self togglePresentedIfNeeded:PresentationFlagBeingPresented forChildViewController:viewController];
   [viewController viewWillAppear:animated];
   return YES;
 }
 
-- (BOOL)delegateDidShowViewController:(UIViewController *)viewController animated:(BOOL)animated
+- (BOOL)delegateDidTransitionToViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
   if (!(self.flags & FlagCanDelegate)) {
     return NO;
   }
   BOOL dismissed = [self.orderedChildViewControllers indexOfObject:viewController] < self.currentChildIndex;
-  SEL selector = @selector(customNavigationController:didShowViewController:animated:dismissed:);
-  if ([self.delegate respondsToSelector:selector]) {
+  SEL showSelector = @selector(customNavigationController:didShowViewController:animated:dismissed:);
+  SEL hideSelector = @selector(customNavigationController:didHideViewController:animated:dismissed:);
+  if ([self.delegate respondsToSelector:showSelector]) {
     [self.delegate customNavigationController:self didShowViewController:viewController animated:animated dismissed:dismissed];
   }
   UIViewController *sourceViewController = nil;
@@ -848,13 +915,34 @@ static NSArray *keyPathsToObserve;
     sourceViewController = self.orderedChildViewControllers[self.currentChildIndexBuffer];
   }
   if (sourceViewController) {
-    [sourceViewController viewDidDisappear:animated];
-    if ([sourceViewController respondsToSelector:selector]) {
+    if ([self.delegate respondsToSelector:hideSelector]) {
+      [self.delegate customNavigationController:self didHideViewController:viewController animated:animated dismissed:dismissed];
+    }
+    if ([sourceViewController respondsToSelector:showSelector]) {
       [(id)sourceViewController customNavigationController:self didShowViewController:viewController animated:animated dismissed:dismissed];
     }
+    if ([viewController respondsToSelector:hideSelector]) {
+      [(id)viewController customNavigationController:self didHideViewController:sourceViewController animated:animated dismissed:dismissed];
+    }
+    [self togglePresentedIfNeeded:PresentationFlagNone forChildViewController:sourceViewController];
+    [sourceViewController viewDidDisappear:animated];
   }
+  [self togglePresentedIfNeeded:PresentationFlagNone forChildViewController:viewController];
   [viewController viewDidAppear:animated];
   return YES;
+}
+
+- (BOOL)delegateShouldNavigateToViewController:(UIViewController *)viewController
+{
+  BOOL shouldNavigate = YES;
+  SEL selector = @selector(customNavigationController:shouldNavigateToViewController:);
+  if ([self.visibleViewController respondsToSelector:selector]) {
+    shouldNavigate = [(id)self.visibleViewController customNavigationController:self shouldNavigateToViewController:viewController];
+  }
+  if ([self.delegate respondsToSelector:selector]) {
+    shouldNavigate = [self.delegate customNavigationController:self shouldNavigateToViewController:viewController];
+  }
+  return shouldNavigate;
 }
 
 #pragma mark - UIGestureRecognizerDelegate
