@@ -623,6 +623,7 @@ static NSArray *keyPathsToObserve;
   [childController willMoveToParentViewController:nil];
   [childController.view removeFromSuperview];
   [childController removeFromParentViewController];
+  [childController didMoveToParentViewController:nil];
   NSUInteger index = [self.orderedChildViewControllers indexOfObject:childController]; //-- Save index beforehand.
   [self.orderedChildViewControllers removeObject:childController];
   if ([childController isKindOfClass:[UICollectionViewController class]]) {
