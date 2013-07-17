@@ -39,6 +39,7 @@ static NSArray *keyPathsToObserve;
 @property (nonatomic, readonly, getter = shouldDelegatePossibleAppearanceChanges) BOOL shouldDelegatePossibleAppearanceChanges;
 
 - (BOOL)hasChildViewController:(id)clue;
+- (NSUInteger)indexOfChildViewController:(id)clue lenient:(BOOL)lenient;
 - (UIViewController *)viewControllerForClue:(id)clue;
 
 /** @name CRUD */
@@ -466,13 +467,27 @@ static NSArray *keyPathsToObserve;
 
 - (BOOL)hasChildViewController:(id)clue
 {
+  return !([self indexOfChildViewController:clue lenient:NO] == NSNotFound);
+}
+- (NSUInteger)indexOfChildViewController:(id)clue lenient:(BOOL)lenient
+{
   UIViewController *viewController = [self viewControllerForClue:clue];
   //-- Guard.
   NSAssert(viewController, @"Can't find child-controller for given clue: %@", clue);
   if (!viewController) {
-    return NO;
+    return NSNotFound;
   }
-  BOOL result = !([self.orderedChildViewControllers indexOfObject:viewController] == NSNotFound);
+  __block NSUInteger result = NSNotFound;
+  if (lenient || [clue isKindOfClass:[NSString class]]) {
+    [self.orderedChildViewControllers enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+      if ([obj class] == viewController.class) {
+        result = idx;
+        stop = YES;
+      }
+    }];
+  } else {
+    result = [self.orderedChildViewControllers indexOfObject:viewController];
+  }
   return result;
 }
 
