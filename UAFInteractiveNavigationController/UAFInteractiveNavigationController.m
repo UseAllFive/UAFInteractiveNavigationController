@@ -343,6 +343,7 @@ static NSArray *keyPathsToObserve;
 }
 - (BOOL)setViewControllers:(NSArray *)viewControllers animated:(BOOL)animated focused:(BOOL)focused
 {
+  //-- Guards.
   NSAssert(viewControllers, @"Avoid passing in nothing for child-controllers.");
   if (!viewControllers) {
     return NO;
@@ -351,6 +352,7 @@ static NSArray *keyPathsToObserve;
     if (self.shouldDebug) DLog(@"Guarded.");
     return NO;
   }
+  //-- /Guards.
   //-- State.
   self.flags |= FlagIsResetting;
   void (^tearDown)(BOOL) = ^(BOOL finished) {
