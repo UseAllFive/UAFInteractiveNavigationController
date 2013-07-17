@@ -525,12 +525,29 @@ static NSArray *keyPathsToObserve;
       [self delegateDidTransitionToViewController:childController animated:animated];
       [self updateChildViewControllerTilingIfNeeded];
     }
-    //-- TODO: Eventually: Support previous, although no real use case (unless we flip directions).
-    if (isNext
-        && [childController respondsToSelector:@selector(nextNavigationItemIdentifier)]
-        && [(id)childController nextNavigationItemIdentifier].length
-        ) {
-      [self pushViewControllerWithIdentifier:[(id)childController nextNavigationItemIdentifier] animated:NO focused:NO];
+    if (isNext && focused) {
+      //-- Setup once.
+      if ([childController respondsToSelector:@selector(nextNavigationItemIdentifier)]
+          && [(id)childController nextNavigationItemIdentifier].length
+          ) {
+        [self pushViewControllerWithIdentifier:[(id)childController nextNavigationItemIdentifier] animated:NO focused:NO];
+      }
+      if ([childController respondsToSelector:@selector(previousNavigationItemIdentifier)]
+          && [(id)childController previousNavigationItemIdentifier].length
+          ) {
+        UIViewController *siblingViewController = [self.storyboard instantiateViewControllerWithIdentifier:[(id)childController previousNavigationItemIdentifier]];
+        BOOL shouldRemove = self.previousViewController && siblingViewController.class != self.previousViewController.class;
+        NSUInteger existingSiblingIndex = [self indexOfChildViewController:[(id)childController previousNavigationItemIdentifier] lenient:YES];
+        if (shouldRemove) {
+          [self handleRemoveChildViewController:self.previousViewController];
+        }
+        if (existingSiblingIndex == NSNotFound
+            || !(existingSiblingIndex < self.currentChildIndex)
+            ) {
+          //-- TODO: Also: Untested.
+          [self addChildViewController:siblingViewController animated:NO focused:NO next:NO];
+        }
+      }
     }
   };
   //-- /State.
