@@ -1016,8 +1016,9 @@ static NSArray *keyPathsToObserve;
 //-- NOTE: Subclassing the gesture-recognizer can allow setting recognizer priority / prevention.
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
-  return ([otherGestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]
-          && ![otherGestureRecognizer.view isKindOfClass:[UIScrollView class]]);
+  //-- Prevent just the scroll-view scenario.
+  return !([otherGestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]
+           && [otherGestureRecognizer.view isKindOfClass:[UIScrollView class]]);
 }
 
 @end
