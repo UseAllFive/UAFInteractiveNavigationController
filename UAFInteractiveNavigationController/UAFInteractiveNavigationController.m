@@ -41,6 +41,7 @@ static NSArray *keyPathsToObserve;
 - (BOOL)hasChildViewController:(id)clue;
 - (NSUInteger)indexOfChildViewController:(id)clue lenient:(BOOL)lenient;
 - (UIViewController *)viewControllerForClue:(id)clue;
+- (UIScrollView *)scrollViewForChildViewController:(UIViewController *)childController;
 
 /** @name CRUD */
 
@@ -101,6 +102,7 @@ static NSArray *keyPathsToObserve;
   self.finishTransitionDurationMinimum = 0.4f;
   self.bounces = YES;
   self.pagingEnabled = NO;
+  self.shouldResetScrollViews = YES;
   self.flags = FlagCanDelegate|FlagCanHandlePan;
   self.orderedChildViewControllers = [NSMutableArray array];
   for (NSString *keyPath in keyPathsToObserve) {
@@ -243,6 +245,10 @@ static NSArray *keyPathsToObserve;
   UIViewController *currentViewController = self.orderedChildViewControllers[self.currentChildIndex];
   self.currentChildIndex--;
   UIViewController *viewController = self.orderedChildViewControllers[self.currentChildIndex];
+  UIScrollView *currentScrollView = nil;
+  if (self.shouldResetScrollViews) {
+    currentScrollView = [self scrollViewForChildViewController:currentViewController];
+  }
   //-- State.
   self.flags |= FlagIsPerforming;
   void (^tearDown)(BOOL) = ^(BOOL finished) {
@@ -282,8 +288,14 @@ static NSArray *keyPathsToObserve;
     [self delegateWillTransitionToViewController:viewController maybe:NO animated:animated];
   }
   if (animated) {
-    [UIView animateWithDuration:self.navigationDuration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut
-                     animations:layout completion:tearDown];
+    if (currentScrollView) {
+      [currentScrollView setContentOffset:CGPointZero animated:YES];
+      [UIView animateWithDuration:self.navigationDuration delay:0.6f options:UIViewAnimationOptionCurveEaseInOut
+                       animations:layout completion:tearDown];
+    } else {
+      [UIView animateWithDuration:self.navigationDuration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut
+                       animations:layout completion:tearDown];
+    }
   } else {
     layout();
     tearDown(YES);
@@ -502,6 +514,17 @@ static NSArray *keyPathsToObserve;
   return viewController;
 }
 
+- (UIScrollView *)scrollViewForChildViewController:(UIViewController *)childController
+{
+  UIScrollView *view = nil;
+  if ([childController.view isKindOfClass:[UIScrollView class]]) {
+    view = (id)childController.view;
+  } else if ([childController isKindOfClass:[UICollectionViewController class]]) {
+    view = [(id)childController collectionView];
+  }
+  return view;
+}
+
 #pragma mark CRUD
 
 - (BOOL)addChildViewController:(UIViewController *)childController animated:(BOOL)animated focused:(BOOL)focused next:(BOOL)isNext
@@ -517,6 +540,14 @@ static NSArray *keyPathsToObserve;
   }
   //-- /Guards.
   NSInteger siblingModifier = isNext ? 1 : -1;
+  UIViewController *currentViewController = nil;
+  if (self.orderedChildViewControllers.count) {
+    currentViewController = self.orderedChildViewControllers[self.currentChildIndex];
+  }
+  UIScrollView *currentScrollView = nil;
+  if (self.shouldResetScrollViews && focused) {
+    currentScrollView = [self scrollViewForChildViewController:currentViewController];
+  }
   //-- State.
   self.flags |= FlagIsPerforming;
   void (^tearDown)(BOOL) = ^(BOOL finished) {
@@ -551,10 +582,6 @@ static NSArray *keyPathsToObserve;
     }
   };
   //-- /State.
-  UIViewController *currentViewController = nil;
-  if (self.orderedChildViewControllers.count) {
-    currentViewController = self.orderedChildViewControllers[self.currentChildIndex];
-  }
   //-- Layout.
   CGRect frame = self.containerView.bounds;
   //-- Guard.
@@ -583,6 +610,12 @@ static NSArray *keyPathsToObserve;
       currentViewController.view.frame = frame;
     }
   };
+  CGPoint targetContentOffset;
+  if (currentScrollView) {
+    BOOL isHorizontal = self.baseNavigationDirection == UAFNavigationDirectionHorizontal;
+    targetContentOffset = CGPointMake(isHorizontal ? currentScrollView.contentSize.width - currentScrollView.width : 0.0f,
+                                      isHorizontal ? 0.0f : currentScrollView.contentSize.height - currentScrollView.height);
+  }
   //-- /Layout.
   //-- Add.
   if (focused) {
@@ -614,8 +647,14 @@ static NSArray *keyPathsToObserve;
     [self delegateWillTransitionToViewController:childController maybe:NO animated:animated];
   }
   if (animated) {
-    [UIView animateWithDuration:self.navigationDuration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut
-                     animations:finishLayout completion:tearDown];
+    if (currentScrollView) {
+      [currentScrollView setContentOffset:targetContentOffset animated:YES];
+      [UIView animateWithDuration:self.navigationDuration delay:0.6f options:UIViewAnimationOptionCurveEaseInOut
+                       animations:finishLayout completion:tearDown];
+    } else {
+      [UIView animateWithDuration:self.navigationDuration delay:0.0f options:UIViewAnimationOptionCurveEaseInOut
+                       animations:finishLayout completion:tearDown];
+    }
   } else {
     if (finishLayout) {
       finishLayout();
