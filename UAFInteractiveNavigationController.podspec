@@ -3,11 +3,11 @@ Pod::Spec.new do |s|
   s.version      = "0.1.1"
   s.summary      = "UAFInteractiveNavigationController makes life easier."
   s.description  = <<-DESC
-                    UAFInteractiveNavigationController mirrors
-                    UINavigationController behavior, but combines it with the
-                    scroll-transition behavior of UIPageViewController. It is
-                    meant for apps not using the custom view-controller.
-                    transitions iOS7.
+                     UAFInteractiveNavigationController mirrors
+                     UINavigationController behavior, but combines it with the
+                     scroll-and-snap transition behavior of
+                     UIPageViewController. It is meant for apps not using the
+                     custom view-controller transitions iOS7.
                    DESC
   s.homepage     = "http://useallfive.github.io/UAFInteractiveNavigationController"
   s.license      = "MIT"

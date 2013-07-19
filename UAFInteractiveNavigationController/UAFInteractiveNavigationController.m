@@ -27,50 +27,290 @@ static NSArray *keyPathsToObserve;
 
 @interface UAFInteractiveNavigationController ()
 
+/**
+ The base representation for navigational state.
+ 
+ It's the base for implementing `-visibleViewController`,
+ `-previousViewController`, `-nextViewController`. It's also buffered via KVO
+ into <currentChildIndexBuffer> to help track more complex navigation flows.
+ It's updated during navigation.
+ */
 @property (nonatomic) NSUInteger currentChildIndex;
+
+/**
+ Private flag bitmask. 
+ 
+ The state for this component is too complex for a bunch
+ of loose booleans. Normal and initial state includes `CanDelegate` and
+ `CanHandlePan`. Flags are:
+ 
+ - `None` - No flags.
+ - `IsPerforming` - Is performing a navigation transition. During this, further
+    navigation and auto-rotation handling are not allowed.
+ - `IsResetting` - Is resetting its entire collection of child-view-controllers.
+    During this, further auto-rotation handling is not allowed.
+ - `IsStealingPan` - Is hijacking the pan gesture from a scrollable
+    child-controller. During this, the pan gesture gets recognized as
+    interactive navigation.
+ - `CanDelegate` - Is able to call methods on `delegate`.
+ - `CanHandlePan` - Is able to use the current pan gesture for interactive
+    navigation.
+ */
 @property (nonatomic) Flag flags;
 
 @property (strong, nonatomic, readwrite) UIView *containerView;
 
+/**
+ Unlike `childViewControllers`, this list is kept in order.
+ 
+ This is to help implement paging and more specifically tiling, where order is
+ required. So instead of using `childViewControllers`, this is used in
+ conjunction with <currentChildIndex> to access child controllers.
+ */
 @property (strong, nonatomic) NSMutableArray *orderedChildViewControllers;
 
 @property (nonatomic, readonly, getter = fetchNavigationDirection) UAFNavigationDirection navigationDirection;
 @property (nonatomic, readonly, getter = fetchNavigationDuration) NSTimeInterval navigationDuration;
+
+/**
+ Whether to call delegate methods and set delegate flags (if applicable) for
+ possible interactive navigation.
+
+ Possible navigation means it can still be cancelled. See `pagingDelegate`'s `-
+ customNavigationControllerShouldNotifyOfPossibleViewAppearanceChange`. Support
+ for delegating on possible navigation allows for updating the child controller
+ before it becomes visible when doing interactive navigation.
+ */
 @property (nonatomic, readonly, getter = shouldDelegatePossibleAppearanceChanges) BOOL shouldDelegatePossibleAppearanceChanges;
 
+/**
+ Search for child-controller matching a clue.
+ 
+ This is mainly used to avoid operating on invalid child-controllers and
+ to optimize management of child-controllers.
+ @param clue Either the child-controller or the view-controller identifier.
+ @see indexOfChildViewController:lenient:
+ @return Has? using a strict equality test.
+ */
 - (BOOL)hasChildViewController:(id)clue;
+/**
+ Get index of child-controller matching a clue.
+ 
+ When using the view-controller identifier approach, `lenient` is automatically
+ on, since _we can't actually find a view-controller by it's identifier_.
+ @param clue Either the child-controller or the view-controller identifier.
+ @param lenient Flag for just checking the child-controller class.
+ @see viewControllerForClue:
+ @return Index, or `NSNotFound`.
+ */
 - (NSUInteger)indexOfChildViewController:(id)clue lenient:(BOOL)lenient;
+/**
+ Produce a view-controller matching a clue.
+ 
+ Mainly used to abstract the translation of a clue into a view-controller.
+ @param clue View-controller or view-controller identifier, anything else
+ produces `nil`.
+ @return View-controller if any.
+ */
 - (UIViewController *)viewControllerForClue:(id)clue;
+/**
+ Find the main content scroll-view of a child-controller.
+ 
+ Used for dealing with navigation conflicts with scroll-views.
+ @param childController Only `UIScrollViewController` and
+ `UICollectionViewController` are supported.
+ @return Scroll-view if any.
+ */
 - (UIScrollView *)scrollViewForChildViewController:(UIViewController *)childController;
 
 /** @name CRUD */
 
-- (BOOL)addChildViewController:(UIViewController *)childController animated:(BOOL)animated focused:(BOOL)focused next:(BOOL)isNext;
+/**
+ The base routine for programmatically navigating to a new view-controller.
+ 
+ @param childController Child-controller to register and present as needed.
+ @param animated Animate the transition? This flag is passed into the delegate
+ methods when applicable.
+ @param focused Present `childController` inside <containerView>? Not doing so
+ also bypasses the delegation methods, and is useful for informally updating the
+ navigation (during a bigger navigation routine, etc.) and also bypasses
+ <updateChildViewControllerTilingIfNeeded>. 
+ 
+ Doing so, on the other hand, also does auto pushing (based on
+ `nextNavigationItemIdentifier`) and auto replacement/removal (based on
+ `previousNavigationItemIdentifier`) of child-controllers.
+ 
+ Mechanics: TODO
+ @param next `YES` means the adding is a 'push'. Otherwise, `childController` is
+ inserted immediately before the current child-controller.
+ @return Success?
+ @see popViewControllerAnimated:focused:
+ @note If `pagingEnabled` and child-controller is already registered,
+ child-controller registration and setup (per the containment programming
+ convention) is skipped. This is due to how child-controllers get stored when
+ `pagingEnabled`.
+ */
+- (BOOL)addChildViewController:(UIViewController *)childController
+                      animated:(BOOL)animated
+                       focused:(BOOL)focused
+                          next:(BOOL)isNext;
 
+/**
+ Subroutine for removing (freeing) child-controllers that are deemed no longer
+ needed.
+ 
+ This is one of the ways we make sure only the required child-controllers are
+ retained in memory. Going in reverse, it checks and removes a child-controller
+ unless:
+ 
+ 1. `pagingEnabled` is `NO` and the child-controller is not a branch node from
+     the current child-controller, but a root node (coming before).
+ 2. `pagingEnabled` and the current 'tileset' need not be trimmed or the
+     child-controller is part of the tileset.
+ @return Success?
+ */
 - (BOOL)cleanChildViewControllers;
-- (BOOL)handleRemoveChildViewController:(UIViewController *)childController; //-- Named to avoid conflict with private API.
+/**
+ Subroutine for deregistering a child-controller, following the containment
+ convention.
+ 
+ Named accordingly to avoid conflict with private API. Will also clean up any
+ observer and gesture-recognizer bindings as needed.
+ @param childController Ditto.
+ @return Success?
+ */
+- (BOOL)handleRemoveChildViewController:(UIViewController *)childController;
 
+/**
+ If `pagingEnabled`, optimize storing child-controllers by only keeping the
+ siblings within the 'tileset' loaded.
+ 
+ The 'tileset' is hard-coded to only include the immediate siblings, which must
+ be provided by the `pagingDelegate`.  Tiling is done by removing the
+ unnecessary child-controllers first and then silently adding new ones as
+ needed.
+ @return Success?
+ @see cleanChildViewControllers
+ @note On 'success', assertion will be made that final tileset count is expected.
+ */
 - (BOOL)updateChildViewControllerTilingIfNeeded;
 
-- (BOOL)togglePresentedIfNeeded:(PresentationFlag)presented forChildViewController:(UIViewController *)childController ;
+/**
+ Subroutine for updating a child-controller's optional boolean presentation
+ flags, if allowed by `shouldUpdatePresentationFlags`.
+ 
+ All of the child-controller's presentation flags are updated.
+ @param presented Our internal flag type.
+ @param childController Ditto.
+ @return Success?
+ */
+- (BOOL)togglePresentedIfNeeded:(PresentationFlag)presented
+         forChildViewController:(UIViewController *)childController ;
 
 /** @name Interactivity */
 
 @property (strong, nonatomic, readwrite) UIPanGestureRecognizer *panGestureRecognizer;
 
+/**
+ Buffer for the previous child-controller's view, to be used by <handlePan:>.
+ */
 @property (strong, nonatomic) UIView *previousView;
+/**
+ Buffer for the 'current' child-controller's view, to be used by <handlePan:>.
+ */
 @property (strong, nonatomic) UIView *currentView;
+/**
+ Buffer for the next child-controller's view, to be used by <handlePan:>.
+ */
 @property (strong, nonatomic) UIView *nextView;
-
+/**
+ Contains all of the logic for interactive navigation.
+ 
+ This is bound to not only this controller's view, but to other scroll-views as
+ well for handling pan gesture conflicts. 
+ 
+ As far as general mechanics, it looks at current translation and velocity to
+ determine if navigation should 'complete' or 'revert', for both of which it
+ them performs an animation with associated callbacks.
+ 
+ In detail, it checks the `gesture.state` and performs appropriately, if at all:
+ 
+ - `StateBegan` - Update the view buffers. Reset flags as needed.
+   - If dealing with a scroll-view, start stealing pan-gesture if needed. When
+     stealing, the scroll-indicator is hidden.
+ - During - Derive translation and velocity based on gesture's view (this
+   controller's view), guard as needed. Apply a transform to all view buffers
+   based on the translation.
+   - If dealing with a scroll-view and stealing pan, freeze `contentOffset` to
+     the top.
+   - Decides if hitting a boundary and if shorting is needed due to `bounces`
+     being `NO`.
+ - `StateEnded` - Decide if to 'finish' or to 'revert'. The new view is animated
+    from a starting center based on the translation to the center of the
+    viewport. The old view is animated from that center to be entirely
+    offscreen, and in the same direction, such that the effect is both views are
+    on the same 'canvas'.
+   - If dealing with a scroll-view, end stealing pan-gesture if needed.
+ - `StateCancelled`, `StateFailed` - Translation will be 0 so just animating to
+    the transform based on the translation will do.
+ - Complete (always) - Tiling gets updated as needed.
+ @param gesture The pan gesture-recognizer.
+ */
 - (void)handlePan:(UIPanGestureRecognizer *)gesture;
 
 /** @name Delegation Handlers */
 
 @property (nonatomic) NSUInteger currentChildIndexBuffer;
 
+/**
+ Subroutine for delegating additional on-add behavior via `-
+ customNavigationController:willAddViewController:`.
+ 
+ Also delegates to `visibleViewController`.
+ @param viewController Child-controller.
+ @return Success?
+ @see `FlagCanDelegate`
+ */
 - (BOOL)delegateWillAddViewController:(UIViewController *)viewController;
-- (BOOL)delegateWillTransitionToViewController:(UIViewController *)viewController maybe:(BOOL)maybe animated:(BOOL)animated;
-- (BOOL)delegateDidTransitionToViewController:(UIViewController *)viewController animated:(BOOL)animated;
+/**
+ Subroutine for delegating additional will-show and will-hide behavior via `-
+ customNavigationController:willShowViewController:animated:dismissed:`, etc.
+ 
+ Will also call the conventional view-controller appearance handlers and toggle
+ presentation flags if needed. The delegation involving the prior
+ child-controller is also performed.
+ @param viewController Child-controller.
+ @param maybe Means the transition is not fully confirmed to complete.
+ 
+ See `shouldDelegatePossibleAppearanceChanges`. Additional delegation does not
+ happen, only the bare minimum.
+ @param animated Ditto.
+ @return Success?
+ @see `FlagCanDelegate`
+ @see togglePresentedIfNeeded:forChildViewController:
+ */
+- (BOOL)delegateWillTransitionToViewController:(UIViewController *)viewController
+                                         maybe:(BOOL)maybe
+                                      animated:(BOOL)animated;
+/**
+ Same as <delegateWillTransitionToViewController:maybe:animated> minus the
+ `maybe` and that presentation flags are just reset.
+ @param viewController Child-controller.
+ @param animated Ditto.
+ @return Success?
+ @see `FlagCanDelegate`
+ @see togglePresentedIfNeeded:forChildViewController:
+ */
+- (BOOL)delegateDidTransitionToViewController:(UIViewController *)viewController
+                                     animated:(BOOL)animated;
+/**
+ Subroutine for delegating additional navigation guarding via `-
+ customNavigationController:shouldNavigateToViewController:`.
+ @param viewController Child-controller.
+ @return Should? Default is `YES`.
+ @note This one isn't guarded by `FlagCanDelegate` since it shouldn't modify
+ delegate state.
+ */
 - (BOOL)delegateShouldNavigateToViewController:(UIViewController *)viewController;
 
 @end
@@ -234,6 +474,9 @@ static NSArray *keyPathsToObserve;
 {
   return [self popViewControllerAnimated:animated focused:YES];
 }
+/**
+ TODO
+ */
 - (BOOL)popViewControllerAnimated:(BOOL)animated focused:(BOOL)focused
 {
   //-- Guards.
