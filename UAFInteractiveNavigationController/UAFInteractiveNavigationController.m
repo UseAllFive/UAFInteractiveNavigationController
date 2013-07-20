@@ -412,6 +412,10 @@ static NSArray *keyPathsToObserve;
   return !(self.flags & FlagIsPerforming || self.flags & FlagIsResetting);
 }
 
+- (BOOL)shouldAutomaticallyForwardAppearanceMethods {
+  return NO;
+}
+
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
   id previousValue = change[NSKeyValueChangeOldKey];
@@ -942,8 +946,9 @@ static NSArray *keyPathsToObserve;
   [childController didMoveToParentViewController:nil];
   NSUInteger index = [self.orderedChildViewControllers indexOfObject:childController]; //-- Save index beforehand.
   [self.orderedChildViewControllers removeObject:childController];
-  if ([childController isKindOfClass:[UICollectionViewController class]]) {
-    [[(UICollectionViewController *)childController collectionView].panGestureRecognizer removeTarget:self action:NULL];
+  UIScrollView *scrollView = [self scrollViewForChildViewController:childController];
+  if (scrollView) {
+    [scrollView.panGestureRecognizer removeTarget:self action:NULL];
   }
   if (index < self.currentChildIndex && self.currentChildIndex > 0) {
     self.currentChildIndex--;
@@ -1027,10 +1032,17 @@ static NSArray *keyPathsToObserve;
   //-- Scrolling conflict resolution.
   //-- TODO: Also: Try alternative with `requireGestureRecognizerToFail:`.
   //-- TODO: Finally: Handle `nextView`.
+  //-- TODO: Firstly: Optimize.
   if ([gesture.view isKindOfClass:[UIScrollView class]]) {
     if (self.previousView) {
       UIScrollView *scrollView = (id)gesture.view;
       CGPoint velocity = [gesture velocityInView:gesture.view];
+      if (self.shouldDebug) DLog(@"%f", [gesture velocityInView:gesture.view].y);
+      BOOL shouldDismiss = ((isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y) <= 0.0f
+                            && (isHorizontal ? velocity.x : velocity.y) > 0.0f); //-- NOTE: Refactor with `velocityValue` as needed.
+      if (!shouldDismiss && !(self.flags & FlagIsStealingPan)) {
+        return;
+      }
       void (^togglePanStealing)(BOOL) = ^(BOOL on) {
         if (on) {
           self.flags |= FlagIsStealingPan;
@@ -1043,12 +1055,7 @@ static NSArray *keyPathsToObserve;
           scrollView.showsVerticalScrollIndicator = !on;
         }
       };
-      if (self.shouldDebug) DLog(@"%f", [gesture velocityInView:gesture.view].y);
-      BOOL shouldDismiss = ((isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y) <= 0.0f
-                            && (isHorizontal ? velocity.x : velocity.y) > 0.0f); //-- NOTE: Refactor with `velocityValue` as needed.
-      if (!shouldDismiss && !(self.flags & FlagIsStealingPan)) {
-        return;
-      } else if (gesture.state == UIGestureRecognizerStateBegan) {
+      if (gesture.state == UIGestureRecognizerStateBegan) {
         togglePanStealing(YES);
       }
       if (!(self.flags & FlagIsStealingPan)) {
@@ -1059,6 +1066,7 @@ static NSArray *keyPathsToObserve;
         togglePanStealing(NO);
       }
     } else {
+      //-- TODO: Also: Handle `nextView`.
       return;
     }
   }
@@ -1104,18 +1112,18 @@ static NSArray *keyPathsToObserve;
       || shouldCancel
       ) {
     //-- Layout.
-    CGPoint initialCenter = self.currentView.center;
-    CGPoint currentCenter = CGPointMake(isHorizontal ? (initialCenter.x + translation.x) : initialCenter.x,
-                                        isHorizontal ? initialCenter.y : (initialCenter.y + translation.y));
+    CGPoint finalCenter = self.currentView.center;
+    CGPoint currentCenter = CGPointMake(isHorizontal ? (finalCenter.x + translation.x) : finalCenter.x,
+                                        isHorizontal ? finalCenter.y : (finalCenter.y + translation.y));
     CGFloat currentSide   = isHorizontal ? self.currentView.width : self.currentView.height;
     CGFloat containerSide = isHorizontal ? self.containerView.width : self.containerView.height;
-    CGPoint (^makeFinalCenter)(UIView *) = ^(UIView *view) {
+    CGPoint (^makeStartCenter)(UIView *) = ^(UIView *view) {
       return CGPointMake(isHorizontal ? (view.center.x + translation.x) : view.center.x,
                          isHorizontal ? view.center.y : (view.center.y + translation.y));
     };
     CGPoint (^makeFinalOffsetForCurrentView)(NSInteger) = ^(NSInteger direction) {
-      return CGPointMake(isHorizontal ? (initialCenter.x - direction * self.currentView.width) : initialCenter.x,
-                         isHorizontal ? initialCenter.y : (initialCenter.y - direction * self.currentView.height));
+      return CGPointMake(isHorizontal ? (finalCenter.x - direction * self.currentView.width) : finalCenter.x,
+                         isHorizontal ? finalCenter.y : (finalCenter.y - direction * self.currentView.height));
     };
     NSTimeInterval (^makeFinalFinishDuration)(NSTimeInterval) = ^(NSTimeInterval duration) {
       return MIN(MAX(duration, self.finishTransitionDurationMinimum), self.baseNavigationDuration);
@@ -1148,12 +1156,12 @@ static NSArray *keyPathsToObserve;
     if (finishedPanToNext) {
       //-- Layout and animate from midway.
       CGPoint previousOffset = makeFinalOffsetForCurrentView(1);
-      CGPoint nextCenter = makeFinalCenter(self.nextView);
+      CGPoint nextCenter = makeStartCenter(self.nextView);
       self.currentView.center = currentCenter;
       self.nextView.center = nextCenter;
       void (^finishLayout)(void) = ^{
         self.currentView.center = previousOffset;
-        self.nextView.center = initialCenter;
+        self.nextView.center = finalCenter;
       };
       self.currentChildIndex++;
       [UIView animateWithDuration:finishDuration delay:0.0f options:easingOptions
@@ -1161,12 +1169,12 @@ static NSArray *keyPathsToObserve;
     } else if (finishedPanToPrevious) {
       //-- Layout and animate from midway.
       CGPoint nextOffset = makeFinalOffsetForCurrentView(-1);
-      CGPoint previousCenter = makeFinalCenter(self.previousView);
+      CGPoint previousCenter = makeStartCenter(self.previousView);
       self.currentView.center = currentCenter;
       self.previousView.center = previousCenter;
       void (^finishLayout)(void) = ^{
         self.currentView.center = nextOffset;
-        self.previousView.center = initialCenter;
+        self.previousView.center = finalCenter;
       };
       self.currentChildIndex--;
       [UIView animateWithDuration:finishDuration delay:0.0f options:easingOptions
