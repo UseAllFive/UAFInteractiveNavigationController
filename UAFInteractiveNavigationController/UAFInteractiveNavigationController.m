@@ -513,31 +513,31 @@ static NSArray *keyPathsToObserve;
     return NO;
   }
   //-- /Guards.
-  UIViewController *currentViewController = self.orderedChildViewControllers[self.currentChildIndex];
+  UIViewController *sourceViewController = self.orderedChildViewControllers[self.currentChildIndex];
   self.currentChildIndex--;
-  UIViewController *viewController = self.orderedChildViewControllers[self.currentChildIndex];
+  UIViewController *destinationViewController = self.orderedChildViewControllers[self.currentChildIndex];
   UIScrollView *currentScrollView = nil;
   if (self.shouldResetScrollViews) {
-    currentScrollView = [self scrollViewForChildViewController:currentViewController];
+    currentScrollView = [self scrollViewForChildViewController:sourceViewController];
   }
   //-- State.
   self.flags |= FlagIsPerforming;
   void (^tearDown)(BOOL) = ^(BOOL finished) {
     self.flags &= ~FlagIsPerforming;
     BOOL shouldRemove = YES;
-    if ([viewController respondsToSelector:@selector(nextNavigationItemIdentifier)]
-        && [(id)viewController nextNavigationItemIdentifier].length
+    if ([destinationViewController respondsToSelector:@selector(nextNavigationItemIdentifier)]
+        && [(id)destinationViewController nextNavigationItemIdentifier].length
         ) {
       //-- Don't remove VC if it's specified as a sibling item.
-      shouldRemove = currentViewController.class != [[self.storyboard instantiateViewControllerWithIdentifier:
-                                                      [(id)viewController nextNavigationItemIdentifier]] class];
+      shouldRemove = sourceViewController.class != [[self.storyboard instantiateViewControllerWithIdentifier:
+                                                     [(id)destinationViewController nextNavigationItemIdentifier]] class];
     }
     if (shouldRemove) {
       if (self.shouldDebug) DLog(@"Removing...");
-      [self handleRemoveChildViewController:currentViewController];
+      [self handleRemoveChildViewController:sourceViewController];
     }
     if (focused) {
-      [self delegateDidTransitionToViewController:viewController animated:animated];
+      [self delegateDidTransitionToViewController:destinationViewController animated:animated];
       [self updateChildViewControllerTilingIfNeeded];
     }
   };
@@ -546,17 +546,17 @@ static NSArray *keyPathsToObserve;
   UAFNavigationDirection direction = self.navigationDirection;
   void (^layout)(void) = ^{
     CGRect frame = self.containerView.bounds;
-    viewController.view.frame = frame;
+    destinationViewController.view.frame = frame;
     if (direction == UAFNavigationDirectionHorizontal) {
       frame.origin.x += frame.size.width;
     } else if (direction == UAFNavigationDirectionVertical) {
       frame.origin.y += frame.size.height;
     }
-    currentViewController.view.frame = frame;
+    sourceViewController.view.frame = frame;
   };
   //-- /Layout.
   if (focused) {
-    [self delegateWillTransitionToViewController:viewController maybe:NO animated:animated];
+    [self delegateWillTransitionToViewController:destinationViewController maybe:NO animated:animated];
   }
   if (animated) {
     if (currentScrollView) {
