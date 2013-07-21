@@ -47,7 +47,7 @@ static NSArray *keyPathsToObserve;
  - `None` - No flags.
  - `IsPerforming` - Is performing a navigation transition. During this, further
     navigation and auto-rotation handling are not allowed.
- - `IsResetting` - Is resetting its entire collection of child-view-controllers.
+ - `IsResetting` - Is resetting its entire child-controller stack.
     During this, further auto-rotation handling is not allowed.
  - `IsStealingPan` - Is hijacking the pan gesture from a scrollable
     child-controller. During this, the pan gesture gets recognized as
@@ -140,7 +140,10 @@ static NSArray *keyPathsToObserve;
  `nextNavigationItemIdentifier`) and auto replacement/removal (based on
  `previousNavigationItemIdentifier`) of child-controllers.
  
- Mechanics: TODO
+ The mechanics involve just updating frames. The new view's frame is fit into
+ <containerView> and then offset one screen in the right direction. It's then
+ moved into the current's frame and current view is moved one in the opposite
+ direction.
  @param next `YES` means the adding is a 'push'. Otherwise, `childController` is
  inserted immediately before the current child-controller.
  @return Success?
@@ -381,6 +384,13 @@ static NSArray *keyPathsToObserve;
   //-- Dispose of any resources that can be recreated.
 }
 
+/**
+ Resizes subviews (child-controller views) inside <containerView> to match the
+ latter's new bounds.
+ 
+ @param toInterfaceOrientation Ditto.
+ @param duration Ditto.
+ */
 - (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
 {
   CGRect bounds = [[UIScreen mainScreen] boundsForOrientation:toInterfaceOrientation fullScreen:self.wantsFullScreenLayout];
@@ -479,7 +489,21 @@ static NSArray *keyPathsToObserve;
   return [self popViewControllerAnimated:animated focused:YES];
 }
 /**
- TODO
+ The base routine for returning to the previous child-controller on the stack.
+ 
+ This operation does not add or replace a child-controller, but only goes back
+ one. If the newly visible child-controller links to the newly hidden one via
+ `nextNavigationItemIdentifier`, the child-controller is exempt from removal.
+ 
+ The mechanics involve just updating frames. The destination view is moved down
+ to the source's frame, while the source moves down another frame, such that the
+ effect is both views are on the same 'canvas'.
+ @param animated Animate the transition? This flag is passed into the delegate
+ methods when applicable.
+ @param focused Delegate and <updateChildViewControllerTilingIfNeeded>?
+ @return Success?
+ @see addChildViewController:animated:focused:next:
+ 
  */
 - (BOOL)popViewControllerAnimated:(BOOL)animated focused:(BOOL)focused
 {
@@ -567,6 +591,19 @@ static NSArray *keyPathsToObserve;
   return [self popToViewController:[self.storyboard instantiateViewControllerWithIdentifier:identifier]
                           animated:animated];
 }
+/**
+ Mimics navigating back more than one child-controller.
+ 
+ Instead, what happens is the entire stack is reset (silently), so any
+ additional child-controllers between the source and destination are removed.
+ Then follows a normal pop operation.
+ @param animated Animate the transition? This flag is passed into the delegate
+ methods when applicable.
+ @return Success?
+ @see popViewControllerAnimated:focused:
+ @see setViewControllers:animated:focused:
+ @see handleRemoveChildViewController:
+ */
 - (BOOL)popToViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
   //-- Guards.
@@ -601,6 +638,21 @@ static NSArray *keyPathsToObserve;
 {
   return [self setViewControllers:viewControllers animated:animated focused:YES];
 }
+/**
+ Set child-controllers.
+ 
+ This is used to re-/populate the child-controller stack. When just populating,
+ push operations usually have focus. The navigation state is also reset to the
+ first child-controller.
+ @param viewControllers Will replace existing child-controllers, which are first
+ removed in reverse. If object is a string, it's assumed to be a
+ child-controller identifier and will be used in instantiation.
+ @param animated Animate the transition? This flag is passed into the delegate
+ methods when applicable.
+ @param focused Allow push operations to be focused? (not silent)
+ @return Success?
+ @see handleRemoveChildViewController:
+ */
 - (BOOL)setViewControllers:(NSArray *)viewControllers animated:(BOOL)animated focused:(BOOL)focused
 {
   //-- Guards.

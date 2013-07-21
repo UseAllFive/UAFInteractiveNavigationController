@@ -44,17 +44,31 @@
  
  ## Imperative (Programmatic) Navigation
  
- TODO
+ The controller can perform imperative navigation operations like pushing and
+ popping, which are not interactive. Once started, they cannot be cancelled. The
+ controller can also pop to non-immediate siblings and reset its entire
+ child-controller stack.
  
  ## Interactive Navigation
  
- TODO
+ Interactive navigation refers to being able to pan and navigate between child
+ view-controllers, much like `UIPageViewController`'s scroll-and-snap navigation
+ and `UIScrollView`'s behavior when `pagingEnabled`. Navigation follows gesture,
+ so it can be cancelled.
  
- ## Highlights
+ ## Implementation Highlights
  
  - <addChildViewController:animated:focused:next:>
  - <popViewControllerAnimated:focused:>
+ - <popToViewController:animated:>
+ - <setViewControllers:animated:focused:>
+ - <cleanChildViewControllers>
+ - <handleRemoveChildViewController:>
+ - <updateChildViewControllerTilingIfNeeded>
+ - <handlePan:>
  
+ @note 'Other Methods' and 'Extension Methods' list entirely private API whose
+ documentation is mainly for development.
  */
 @interface UAFInteractiveNavigationController : UAFViewController
 
