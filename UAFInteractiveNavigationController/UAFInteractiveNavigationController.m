@@ -1098,6 +1098,24 @@ static NSArray *keyPathsToObserve;
     self.flags &= ~FlagCanHandlePan;
     return;
   }
+  //-- Only handle supported directions and passing gestures.
+  if (!(self.flags & FlagCanHandlePan)) {
+    return;
+  } else if ((isHorizontal && ABS(velocity.x) < ABS(velocity.y))
+             || (!isHorizontal && ABS(velocity.y) < ABS(velocity.x))
+             ) {
+    if (self.shouldDebug) DLog(@"Can't handle gesture (%@).", NSStringFromClass(self.class));
+    self.flags &= ~FlagCanHandlePan;
+    shouldCancel = YES;
+  }
+  //-- Only continue if `bounces` option is on when at a boundary.
+  if (!self.bounces) {
+    BOOL isNextBoundary     = translationValue < 0 && !self.nextView;
+    BOOL isPreviousBoundary = translationValue > 0 && !self.previousView;
+    if (isNextBoundary || isPreviousBoundary) {
+      return;
+    }
+  }
   //-- Scrolling conflict resolution.
   //-- TODO: Also: Try alternative with `requireGestureRecognizerToFail:`.
   //-- TODO: Finally: Handle `nextView`.
@@ -1139,24 +1157,6 @@ static NSArray *keyPathsToObserve;
         //-- TODO: Also: Handle `nextView`.
         return;
       }
-    }
-  }
-  //-- Only handle supported directions and passing gestures.
-  if (!(self.flags & FlagCanHandlePan)) {
-    return;
-  } else if ((isHorizontal && ABS(velocity.x) < ABS(velocity.y))
-             || (!isHorizontal && ABS(velocity.y) < ABS(velocity.x))
-             ) {
-    if (self.shouldDebug) DLog(@"Can't handle gesture (%@).", NSStringFromClass(self.class));
-    self.flags &= ~FlagCanHandlePan;
-    shouldCancel = YES;
-  }
-  //-- Only continue if `bounces` option is on when at a boundary.
-  if (!self.bounces) {
-    BOOL isNextBoundary     = translationValue < 0 && !self.nextView;
-    BOOL isPreviousBoundary = translationValue > 0 && !self.previousView;
-    if (isNextBoundary || isPreviousBoundary) {
-      return;
     }
   }
   //-- /Guards.
