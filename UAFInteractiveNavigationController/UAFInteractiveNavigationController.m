@@ -1077,7 +1077,7 @@ static NSArray *keyPathsToObserve;
   CGPoint velocity    = [gesture velocityInView:gesture.view];
   CGFloat translationValue = isHorizontal ? translation.x : translation.y;
   CGFloat velocityValue    = isHorizontal ? velocity.x : velocity.y;
-  UIViewController *destinationViewController = nil;
+  UIViewController *destinationViewController = (translationValue < 0) ? self.nextViewController : self.previousViewController;
   //-- Start.
   if (gesture.state == UIGestureRecognizerStateBegan) {
     self.flags |= FlagCanHandlePan;
@@ -1089,6 +1089,13 @@ static NSArray *keyPathsToObserve;
   //-- /Start.
   //-- Guards.
   if (self.flags & FlagIsPerforming) {
+    return;
+  }
+  //-- Check delegates.
+  if (gesture.state == UIGestureRecognizerStateBegan
+      && ![self delegateShouldNavigateToViewController:destinationViewController]
+      ) {
+    self.flags &= ~FlagCanHandlePan;
     return;
   }
   //-- Scrolling conflict resolution.
@@ -1134,7 +1141,7 @@ static NSArray *keyPathsToObserve;
       }
     }
   }
-  //-- Only handle supported directions.
+  //-- Only handle supported directions and passing gestures.
   if (!(self.flags & FlagCanHandlePan)) {
     return;
   } else if ((isHorizontal && ABS(velocity.x) < ABS(velocity.y))
@@ -1144,7 +1151,6 @@ static NSArray *keyPathsToObserve;
     self.flags &= ~FlagCanHandlePan;
     shouldCancel = YES;
   }
-  
   //-- Only continue if `bounces` option is on when at a boundary.
   if (!self.bounces) {
     BOOL isNextBoundary     = translationValue < 0 && !self.nextView;
@@ -1153,15 +1159,12 @@ static NSArray *keyPathsToObserve;
       return;
     }
   }
-  //-- Check delegates.
-  destinationViewController = (translationValue < 0) ? self.nextViewController : self.previousViewController;
-  if (![self delegateShouldNavigateToViewController:destinationViewController]) {
-    return;
-  }
   //-- /Guards.
+  //-- Complete start.
   if (gesture.state == UIGestureRecognizerStateBegan && self.shouldDelegatePossibleAppearanceChanges) {
     [self delegateWillTransitionToViewController:destinationViewController maybe:YES animated:YES];
   }
+  //-- /Complete start.
   //-- Update.
   CGAffineTransform transform =
   CGAffineTransformMakeTranslation(isHorizontal ? translation.x : 0.0f,
