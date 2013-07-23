@@ -938,6 +938,16 @@ static NSArray *keyPathsToObserve;
       UIScrollView *scrollView = [(UICollectionViewController *)childController collectionView];
       [scrollView.panGestureRecognizer addTarget:self action:@selector(handlePan:)];
     }
+    if ([childController respondsToSelector:@selector(customNavigationControllerSubviewsToSupportInteractiveNavigation:)]) {
+      NSArray *subviews = [(id)childController customNavigationControllerSubviewsToSupportInteractiveNavigation:self];
+      if (subviews) {
+        for (UIView *view in subviews) {
+          if ([view isKindOfClass:[UIScrollView class]]) {
+            [[(UIScrollView *)view panGestureRecognizer] addTarget:self action:@selector(handlePan:)];
+          }
+        }
+      }
+    }
     [self.containerView addSubview:childController.view];
     [childController didMoveToParentViewController:self];
   }
@@ -1086,40 +1096,42 @@ static NSArray *keyPathsToObserve;
   //-- TODO: Finally: Handle `nextView`.
   //-- TODO: Firstly: Optimize.
   if ([gesture.view isKindOfClass:[UIScrollView class]]) {
-    if (self.previousView) {
-      UIScrollView *scrollView = (id)gesture.view;
-      CGPoint velocity = [gesture velocityInView:gesture.view];
-      if (self.shouldDebug) DLog(@"%f", [gesture velocityInView:gesture.view].y);
-      BOOL shouldDismiss = ((isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y) <= 0.0f
-                            && (isHorizontal ? velocity.x : velocity.y) > 0.0f); //-- NOTE: Refactor with `velocityValue` as needed.
-      if (!shouldDismiss && !(self.flags & FlagIsStealingPan)) {
+    UIScrollView *scrollView = (id)gesture.view;
+    if (scrollView.contentSize.height > scrollView.height) {
+      if (self.previousView) {
+        CGPoint velocity = [gesture velocityInView:gesture.view];
+        if (self.shouldDebug) DLog(@"%f", [gesture velocityInView:gesture.view].y);
+        BOOL shouldDismiss = ((isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y) <= 0.0f
+                              && (isHorizontal ? velocity.x : velocity.y) > 0.0f); //-- NOTE: Refactor with `velocityValue` as needed.
+        if (!shouldDismiss && !(self.flags & FlagIsStealingPan)) {
+          return;
+        }
+        void (^togglePanStealing)(BOOL) = ^(BOOL on) {
+          if (on) {
+            self.flags |= FlagIsStealingPan;
+          } else {
+            self.flags &= ~FlagIsStealingPan;
+          }
+          if (isHorizontal) {
+            scrollView.showsHorizontalScrollIndicator = !on; //-- TODO: Finally: Don't be assumptive about previous value.
+          } else {
+            scrollView.showsVerticalScrollIndicator = !on;
+          }
+        };
+        if (gesture.state == UIGestureRecognizerStateBegan) {
+          togglePanStealing(YES);
+        }
+        if (!(self.flags & FlagIsStealingPan)) {
+          return;
+        } else if (self.flags & FlagIsStealingPan && gesture.state != UIGestureRecognizerStateEnded) {
+          scrollView.contentOffset = CGPointZero; //-- TODO: Also: Account for content-insets?
+        } else if (gesture.state == UIGestureRecognizerStateEnded) {
+          togglePanStealing(NO);
+        }
+      } else {
+        //-- TODO: Also: Handle `nextView`.
         return;
       }
-      void (^togglePanStealing)(BOOL) = ^(BOOL on) {
-        if (on) {
-          self.flags |= FlagIsStealingPan;
-        } else {
-          self.flags &= ~FlagIsStealingPan;
-        }
-        if (isHorizontal) {
-          scrollView.showsHorizontalScrollIndicator = !on; //-- TODO: Finally: Don't be assumptive about previous value.
-        } else {
-          scrollView.showsVerticalScrollIndicator = !on;
-        }
-      };
-      if (gesture.state == UIGestureRecognizerStateBegan) {
-        togglePanStealing(YES);
-      }
-      if (!(self.flags & FlagIsStealingPan)) {
-        return;
-      } else if (self.flags & FlagIsStealingPan && gesture.state != UIGestureRecognizerStateEnded) {
-        scrollView.contentOffset = CGPointZero; //-- TODO: Also: Account for content-insets?
-      } else if (gesture.state == UIGestureRecognizerStateEnded) {
-        togglePanStealing(NO);
-      }
-    } else {
-      //-- TODO: Also: Handle `nextView`.
-      return;
     }
   }
   //-- Only handle supported directions.
@@ -1359,8 +1371,10 @@ static NSArray *keyPathsToObserve;
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
   //-- Prevent just the scroll-view scenario.
-  return !([otherGestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]
-           && [otherGestureRecognizer.view isKindOfClass:[UIScrollView class]]);
+  BOOL shouldRecognize = !([otherGestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]
+                           && ([otherGestureRecognizer.view isKindOfClass:[UIScrollView class]]
+                               || otherGestureRecognizer.view == self.currentView));
+  return shouldRecognize;
 }
 
 @end
