@@ -84,6 +84,11 @@ static NSArray *keyPathsToObserve;
 @property (nonatomic, readonly, getter = shouldDelegatePossibleAppearanceChanges) BOOL shouldDelegatePossibleAppearanceChanges;
 
 /**
+ TODO: Document.
+ */
+@property (nonatomic, readonly, getter = shouldRemoveNextChildViewController) BOOL shouldRemoveNextChildViewController;
+
+/**
  Search for child-controller matching a clue.
  
  This is mainly used to avoid operating on invalid child-controllers and
@@ -172,7 +177,7 @@ static NSArray *keyPathsToObserve;
      child-controller is part of the tileset.
  @return Success?
  */
-- (BOOL)cleanChildViewControllers;
+- (BOOL)cleanChildViewControllersWithNextSiblingExemption:(BOOL)exemptNext;
 /**
  Subroutine for deregistering a child-controller, following the containment
  convention.
@@ -193,7 +198,7 @@ static NSArray *keyPathsToObserve;
  unnecessary child-controllers first and then silently adding new ones as
  needed.
  @return Success?
- @see cleanChildViewControllers
+ @see cleanChildViewControllersWithNextSiblingExemption:
  @note On 'success', assertion will be made that final tileset count is expected.
  */
 - (BOOL)updateChildViewControllerTilingIfNeeded;
@@ -217,15 +222,15 @@ static NSArray *keyPathsToObserve;
 /**
  Buffer for the previous child-controller's view, to be used by <handlePan:>.
  */
-@property (strong, nonatomic) UIView *previousView;
+@property (weak, nonatomic) UIView *previousView;
 /**
  Buffer for the 'current' child-controller's view, to be used by <handlePan:>.
  */
-@property (strong, nonatomic) UIView *currentView;
+@property (weak, nonatomic) UIView *currentView;
 /**
  Buffer for the next child-controller's view, to be used by <handlePan:>.
  */
-@property (strong, nonatomic) UIView *nextView;
+@property (weak, nonatomic) UIView *nextView;
 /**
  Contains all of the logic for interactive navigation.
  
@@ -524,21 +529,11 @@ static NSArray *keyPathsToObserve;
   self.flags |= FlagIsPerforming;
   void (^tearDown)(BOOL) = ^(BOOL finished) {
     self.flags &= ~FlagIsPerforming;
-    BOOL shouldRemove = YES;
-    if ([destinationViewController respondsToSelector:@selector(nextNavigationItemIdentifier)]
-        && [(id)destinationViewController nextNavigationItemIdentifier].length
-        ) {
-      //-- Don't remove VC if it's specified as a sibling item.
-      shouldRemove = sourceViewController.class != [[self.storyboard instantiateViewControllerWithIdentifier:
-                                                     [(id)destinationViewController nextNavigationItemIdentifier]] class];
-    }
-    if (shouldRemove) {
-      if (self.shouldDebug) DLog(@"Removing...");
-      [self handleRemoveChildViewController:sourceViewController];
-    }
     if (focused) {
       [self delegateDidTransitionToViewController:destinationViewController animated:animated];
-      [self updateChildViewControllerTilingIfNeeded];
+      if (![self updateChildViewControllerTilingIfNeeded]) {
+        [self cleanChildViewControllersWithNextSiblingExemption:YES];
+      }
     }
   };
   //-- /State.
@@ -776,6 +771,14 @@ static NSArray *keyPathsToObserve;
           && [self.pagingDelegate customNavigationControllerShouldNotifyOfPossibleViewAppearanceChange:self]);
 }
 
+- (BOOL)shouldRemoveNextChildViewController
+{
+  return !([self.visibleViewController respondsToSelector:@selector(nextNavigationItemIdentifier)]
+           && [(id)self.visibleViewController nextNavigationItemIdentifier].length
+           && self.nextViewController.class == [[self.storyboard instantiateViewControllerWithIdentifier:
+                                                 [(id)self.visibleViewController nextNavigationItemIdentifier]] class]);
+}
+
 - (BOOL)hasChildViewController:(id)clue
 {
   return !([self indexOfChildViewController:clue lenient:NO] == NSNotFound);
@@ -796,6 +799,7 @@ static NSArray *keyPathsToObserve;
         stop = YES;
       }
     }];
+    viewController = nil;
   } else {
     result = [self.orderedChildViewControllers indexOfObject:viewController];
   }
@@ -918,7 +922,7 @@ static NSArray *keyPathsToObserve;
   //-- /Layout.
   //-- Add.
   if (focused) {
-    [self cleanChildViewControllers];
+    [self cleanChildViewControllersWithNextSiblingExemption:NO];
   }
   BOOL shouldSkipAdding = self.pagingEnabled && [self hasChildViewController:childController];
   if (!shouldSkipAdding) {
@@ -976,22 +980,27 @@ static NSArray *keyPathsToObserve;
   return YES;
 }
 
-- (BOOL)cleanChildViewControllers
+- (BOOL)cleanChildViewControllersWithNextSiblingExemption:(BOOL)exemptNext
 {
   if (!self.orderedChildViewControllers.count || self.flags & FlagIsResetting) {
     return NO;
   }
   if (self.shouldDebug) DLog(@"Visible index: %d", self.currentChildIndex);
   for (NSInteger index = self.orderedChildViewControllers.count - 1; index >= 0; index--) {
+    UIViewController *viewController = self.orderedChildViewControllers[index];
+    BOOL exempt           = (!self.pagingEnabled && exemptNext
+                             && viewController == self.nextViewController
+                             && !self.shouldRemoveNextChildViewController);
     BOOL isOfSharedRoot   = index <= self.currentChildIndex;
     BOOL isWithinTileset  = index <= self.currentChildIndex + 1 && index >= self.currentChildIndex - 1;
     BOOL isTilesetReady   = self.orderedChildViewControllers.count <= 2;
-    if ((!self.pagingEnabled && isOfSharedRoot)
+    if (exempt
+        || (!self.pagingEnabled && (isOfSharedRoot))
         || (self.pagingEnabled && (isWithinTileset || isTilesetReady))
         ) {
       continue;
     }
-    [self handleRemoveChildViewController:self.orderedChildViewControllers[index]];
+    [self handleRemoveChildViewController:viewController];
   }
   return YES;
 }
@@ -1016,6 +1025,7 @@ static NSArray *keyPathsToObserve;
     self.currentChildIndex--;
   }
   if (self.shouldDebug) DLog(@"Cleared index: %d", index);
+  childController = nil;
   return YES;
 }
 
@@ -1024,7 +1034,7 @@ static NSArray *keyPathsToObserve;
   if (!self.pagingEnabled || !self.pagingDelegate) {
     return NO;
   }
-  [self cleanChildViewControllers];
+  [self cleanChildViewControllersWithNextSiblingExemption:NO];
   BOOL didUpdate = NO;
   UIViewController *nextViewController = [self.pagingDelegate customNavigationController:self viewControllerAfterViewController:self.visibleViewController];
   UIViewController *previousViewController = [self.pagingDelegate customNavigationController:self viewControllerBeforeViewController:self.visibleViewController];
@@ -1211,11 +1221,14 @@ static NSArray *keyPathsToObserve;
       finishDuration = makeFinalFinishDuration(finishDuration);
       //-- Callbacks.
       destinationViewController = self.orderedChildViewControllers[self.currentChildIndex + (finishedPanToNext ? 1 : -1)];
+      //-- TODO: Also: Defect where blank screen shows for a moment.
       [self delegateWillTransitionToViewController:destinationViewController maybe:NO animated:YES];
       handleDidShow = ^(BOOL finished) {
         [self delegateDidTransitionToViewController:destinationViewController animated:YES];
         //-- Extra.
-        [self updateChildViewControllerTilingIfNeeded];
+        if (![self updateChildViewControllerTilingIfNeeded]) {
+          [self cleanChildViewControllersWithNextSiblingExemption:finishedPanToPrevious];
+        }
       };
     }
     UIViewAnimationOptions easingOptions = (ABS(translationValue) > 300.0f && (finishedPanToNext || finishedPanToPrevious))
