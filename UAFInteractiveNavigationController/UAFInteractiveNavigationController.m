@@ -1359,6 +1359,9 @@ static NSArray *keyPathsToObserve;
     if ([sourceViewController respondsToSelector:showSelector]) {
       [(id)sourceViewController customNavigationController:self didShowViewController:viewController animated:animated dismissed:dismissed];
     }
+    //-- Note: The sourceViewController runs the chance of immediately getting
+    //   cleaned up, render this callback pointless.
+    //-- TODO: Shouldn't be like this.
     if ([viewController respondsToSelector:hideSelector]) {
       [(id)viewController customNavigationController:self didHideViewController:sourceViewController animated:animated dismissed:dismissed];
     }
