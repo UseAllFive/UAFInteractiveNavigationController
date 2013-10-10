@@ -339,7 +339,7 @@ static NSArray *keyPathsToObserve;
 {
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    keyPathsToObserve = @[ @"currentChildIndex" ];
+    keyPathsToObserve = @[ NSStringFromSelector(@selector(currentChildIndex)) ];
   });
   [super _commonInit];
   //-- Custom initialization.
@@ -439,7 +439,7 @@ static NSArray *keyPathsToObserve;
     return;
   }
   if (object == self) {
-    if ([keyPath isEqualToString:@"currentChildIndex"]) {
+    if ([keyPath isEqualToString:NSStringFromSelector(@selector(currentChildIndex))]) {
       self.currentChildIndexBuffer = [previousValue unsignedIntegerValue];
     }
   }
