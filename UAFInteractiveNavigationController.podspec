@@ -12,8 +12,8 @@ Pod::Spec.new do |s|
   s.homepage     = "http://useallfive.github.io/UAFInteractiveNavigationController"
   s.license      = "MIT"
   s.authors      = { "Peng Wang"   => "peng@pengxwang.com" }
-  s.source       = { :git => "https://bitbucket.org/hlfcoding/UAFInteractiveNavigationController.git",
-                     :tag => "0.1.0" }
+  s.source       = { :git => "https://github.com/UseAllFive/UAFInteractiveNavigationController.git",
+                     :tag => "0.1.2" }
   s.platform     = :ios, '5.0'
   s.requires_arc = true
   s.source_files = 'UAFInteractiveNavigationController'
