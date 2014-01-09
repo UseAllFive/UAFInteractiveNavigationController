@@ -23,6 +23,7 @@ typedef NS_ENUM(NSUInteger, PresentationFlag) {
   PresentationFlagBeingDismissed,
 };
 
+static void * observationContext = &observationContext;
 static NSArray *keyPathsToObserve;
 
 @interface UAFInteractiveNavigationController ()
@@ -35,7 +36,7 @@ static NSArray *keyPathsToObserve;
  into <currentChildIndexBuffer> to help track more complex navigation flows.
  It's updated during navigation.
  */
-@property (nonatomic) NSUInteger currentChildIndex;
+@property (nonatomic, setter = setCurrentChildIndex:) NSUInteger currentChildIndex;
 
 /**
  Private flag bitmask. 
@@ -80,12 +81,15 @@ static NSArray *keyPathsToObserve;
  possible navigation allows for updating the child controller before it becomes
  visible when doing interactive navigation.
  
- @see [UAFPagingNavigationControllerDelegate customNavigationControllerShouldNotifyOfPossibleViewAppearanceChange:]
+ @see [UAFPagingNavigationControllerDelegate
+ customNavigationControllerShouldNotifyOfPossibleViewAppearanceChange:]
  */
 @property (nonatomic, readonly, getter = shouldDelegatePossibleAppearanceChanges) BOOL shouldDelegatePossibleAppearanceChanges;
 
 /**
-
+ <nextViewController> will only be considered removable at any time if the
+ visibleViewController doesn't request it under its <[UAFNavigationItem
+ nextNavigationItemIdentifier]>.
  */
 @property (nonatomic, readonly, getter = shouldRemoveNextChildViewController) BOOL shouldRemoveNextChildViewController;
 
@@ -340,7 +344,7 @@ static NSArray *keyPathsToObserve;
 {
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    keyPathsToObserve = @[ NSStringFromSelector(@selector(currentChildIndex)) ];
+    keyPathsToObserve = @[ ];
   });
   [super _commonInit];
   //-- Custom initialization.
@@ -355,14 +359,14 @@ static NSArray *keyPathsToObserve;
   self.flags = FlagCanDelegate|FlagCanHandlePan;
   self.orderedChildViewControllers = [NSMutableArray array];
   for (NSString *keyPath in keyPathsToObserve) {
-    [self addObserver:self forKeyPath:keyPath options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld context:nil];
+    [self addObserver:self forKeyPath:keyPath options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld context:observationContext];
   }
 }
 
 - (void)dealloc
 {
   for (NSString *keyPath in keyPathsToObserve) {
-    [self removeObserver:self forKeyPath:keyPath];
+    [self removeObserver:self forKeyPath:keyPath context:observationContext];
   }  
 }
 
@@ -436,14 +440,6 @@ static NSArray *keyPathsToObserve;
 {
   id previousValue = change[NSKeyValueChangeOldKey];
   id value = change[NSKeyValueChangeNewKey];
-  if ([value isEqual:previousValue]) {
-    return;
-  }
-  if (object == self) {
-    if ([keyPath isEqualToString:NSStringFromSelector(@selector(currentChildIndex))]) {
-      self.currentChildIndexBuffer = [previousValue unsignedIntegerValue];
-    }
-  }
 }
 
 #pragma mark - UAFNavigationController
@@ -827,6 +823,12 @@ static NSArray *keyPathsToObserve;
     view = [(id)childController collectionView];
   }
   return view;
+}
+
+- (void)setCurrentChildIndex:(NSUInteger)currentChildIndex
+{
+  self.currentChildIndexBuffer = _currentChildIndex;
+  _currentChildIndex = currentChildIndex;
 }
 
 #pragma mark CRUD
