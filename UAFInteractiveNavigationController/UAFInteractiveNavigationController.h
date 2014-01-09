@@ -62,13 +62,11 @@
  - <popViewControllerAnimated:focused:>
  - <popToViewController:animated:>
  - <setViewControllers:animated:focused:>
- - <cleanChildViewControllers>
+ - <cleanChildViewControllersWithNextSiblingExemption:>
  - <handleRemoveChildViewController:>
  - <updateChildViewControllerTilingIfNeeded>
  - <handlePan:>
  
- @note 'Other Methods' and 'Extension Methods' list entirely private API whose
- documentation is mainly for development.
  */
 @interface UAFInteractiveNavigationController : UAFViewController
 

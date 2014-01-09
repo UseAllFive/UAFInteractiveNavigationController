@@ -76,15 +76,16 @@ static NSArray *keyPathsToObserve;
  Whether to call delegate methods and set delegate flags (if applicable) for
  possible interactive navigation.
 
- Possible navigation means it can still be cancelled. See `pagingDelegate`'s `-
- customNavigationControllerShouldNotifyOfPossibleViewAppearanceChange`. Support
- for delegating on possible navigation allows for updating the child controller
- before it becomes visible when doing interactive navigation.
+ Possible navigation means it can still be cancelled. Support for delegating on
+ possible navigation allows for updating the child controller before it becomes
+ visible when doing interactive navigation.
+ 
+ @see [UAFPagingNavigationControllerDelegate customNavigationControllerShouldNotifyOfPossibleViewAppearanceChange:]
  */
 @property (nonatomic, readonly, getter = shouldDelegatePossibleAppearanceChanges) BOOL shouldDelegatePossibleAppearanceChanges;
 
 /**
- TODO: Document.
+
  */
 @property (nonatomic, readonly, getter = shouldRemoveNextChildViewController) BOOL shouldRemoveNextChildViewController;
 
@@ -213,7 +214,7 @@ static NSArray *keyPathsToObserve;
  @return Success?
  */
 - (BOOL)togglePresentedIfNeeded:(PresentationFlag)presented
-         forChildViewController:(UIViewController *)childController ;
+         forChildViewController:(UIViewController *)childController;
 
 /** @name Interactivity */
 
@@ -1055,7 +1056,7 @@ static NSArray *keyPathsToObserve;
   return didUpdate;
 }
 
-- (BOOL)togglePresentedIfNeeded:(PresentationFlag)presented forChildViewController:(UIViewController *)childController ;
+- (BOOL)togglePresentedIfNeeded:(PresentationFlag)presented forChildViewController:(UIViewController *)childController
 {
   if (!self.shouldUpdatePresentationFlags) {
     return NO;
