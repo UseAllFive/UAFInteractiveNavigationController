@@ -797,7 +797,7 @@ static NSArray *keyPathsToObserve;
     [self.orderedChildViewControllers enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
       if ([obj class] == viewController.class) {
         result = idx;
-        stop = YES;
+        *stop = YES;
       }
     }];
     viewController = nil;
