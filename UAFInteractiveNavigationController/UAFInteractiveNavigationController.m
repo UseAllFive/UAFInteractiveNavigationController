@@ -1174,8 +1174,12 @@ static NSArray *keyPathsToObserve;
   }
   //-- /Guards.
   //-- Complete start.
-  if (gesture.state == UIGestureRecognizerStateBegan && self.shouldDelegatePossibleAppearanceChanges) {
-    [self delegateWillTransitionToViewController:destinationViewController maybe:YES animated:YES];
+
+  if (gesture.state == UIGestureRecognizerStateBegan) {
+    destinationViewController.view.hidden = NO;
+    if (self.shouldDelegatePossibleAppearanceChanges) {
+      [self delegateWillTransitionToViewController:destinationViewController maybe:YES animated:YES];
+    }
   }
   //-- /Complete start.
   //-- Update.
@@ -1328,6 +1332,7 @@ static NSArray *keyPathsToObserve;
       [sourceViewController viewWillDisappear:animated];
     }
   }
+  viewController.view.hidden = NO;
   if (!maybe) {
     [viewController viewWillAppear:animated];
   }
@@ -1369,6 +1374,9 @@ static NSArray *keyPathsToObserve;
       [(id)viewController customNavigationController:self didHideViewController:sourceViewController animated:animated dismissed:dismissed];
     }
     [sourceViewController viewDidDisappear:animated];
+  }
+  if (sourceViewController != viewController) {
+    sourceViewController.view.hidden = YES;
   }
   [viewController viewDidAppear:animated];
   return YES;
