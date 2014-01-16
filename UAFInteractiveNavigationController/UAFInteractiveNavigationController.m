@@ -359,14 +359,15 @@ static NSArray *keyPathsToObserve;
   self.flags = FlagCanDelegate|FlagCanHandlePan;
   self.orderedChildViewControllers = [NSMutableArray array];
   for (NSString *keyPath in keyPathsToObserve) {
-    [self addObserver:self forKeyPath:keyPath options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld context:observationContext];
+    [self addObserver:self forKeyPath:keyPath
+              options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld context:&observationContext];
   }
 }
 
 - (void)dealloc
 {
   for (NSString *keyPath in keyPathsToObserve) {
-    [self removeObserver:self forKeyPath:keyPath context:observationContext];
+    [self removeObserver:self forKeyPath:keyPath context:&observationContext];
   }  
 }
 
@@ -438,8 +439,14 @@ static NSArray *keyPathsToObserve;
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
-  id previousValue = change[NSKeyValueChangeOldKey];
-  id value = change[NSKeyValueChangeNewKey];
+  if (context == &observationContext) {
+    
+    id previousValue = change[NSKeyValueChangeOldKey];
+    id value = change[NSKeyValueChangeNewKey];
+
+  } else {
+    [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+  }
 }
 
 #pragma mark - UAFNavigationController
